@@ -27,9 +27,12 @@ the working directory. The VGG checkpoint is
 `397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0`.
 The metric script refuses to download missing weights.
 
-Run quality only after the performance runner reports complete, stops its owned
-browser/server processes, and releases `results/gpu-session.lock`. MPS quality
-must never overlap performance collection. PSNR uses CPU float64 pixel MSE;
+For a complete report, run quality only after the performance runner reports
+complete, stops its owned browser/server processes, and releases
+`results/gpu-session.lock`. An explicitly requested partial preview may use
+`--allow-partial` after the collector has safely stopped, with every owned process
+exited and the GPU lock released. MPS quality must never overlap performance
+collection. PSNR uses CPU float64 pixel MSE;
 SSIM/LPIPS use the explicitly selected `cpu` or `mps` device. MPS availability is
 checked on the actual target Mac, without assuming a particular M-series chip.
 
@@ -52,9 +55,14 @@ The script reads canonical `method=visionary|spark|supersplat` from one run's
 `qualityCaptures` entry. Image paths are relative to that run root. It refuses
 to combine old collections or a separately supplied render manifest. Formal
 completion requires156 configurations and exactly4,536 unique views.
-`--allow-partial` is reserved for explicitly labeled pilots; it cannot set full
-matrix completion true. Checkpoints bind raw, renderer image and GT hashes;
-changed inputs are rejected rather than silently reusing stale scores.
+`--allow-partial` supports an explicitly labeled preview of a safely stopped
+collection. It accepts only complete configurations with all their selected
+captures, and never sets full-matrix completion true. Put its output in a separate
+preview directory. `collection-scope.json` binds the observed raw inventory and
+cleanup receipt; `requestedSubsetComplete=true` means only that declared subset
+has all quality scores. The full 156-configuration analysis still requires full
+coverage. Checkpoints bind raw, renderer image and GT hashes; changed inputs are
+rejected rather than silently reusing stale scores.
 
 The final analysis requires `RUN/validation/quality-numerical-validation.json`
 with `complete=true`; its metric and validation script hashes must match this
@@ -81,6 +89,15 @@ package versions, model-weight hashes, script identity, and actual computation
 device are retained in the metric protocol and JSONL outputs.
 
 ## Ground truth and source recovery
+
+Use the repository virtualenv with **Pillow11.3.0** both when preparing GT and
+when running `scripts/verify-ground-truth.py`. The committed
+[`scripts/ground-truth-pixels-lock.json`](../scripts/ground-truth-pixels-lock.json)
+is the fixed whitelist for all378 selected source/camera identities and decoded
+RGB8 pixel hashes. Verification checks this independent whitelist as well as
+the supplied manifest and PNG file hashes; changing a supplied manifest cannot
+authorize different photographs or pixels. Do not edit the whitelist to accept
+different GT. Existing verified GT may be copied without resizing or re-encoding.
 
 `prepare_ground_truth.py` verifies every source SHA, dimension and camera before
 RGB conversion and fixed1280×720 Pillow bicubic resizing. No EXIF rotation,

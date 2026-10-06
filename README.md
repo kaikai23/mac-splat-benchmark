@@ -1,8 +1,12 @@
 # Apple Silicon Mac Gaussian Splatting 复现实验
 
+**第一次在同事的 Mac 上运行，请从 [同事复测指南](docs/COLLEAGUE_QUICKSTART.zh-CN.md) 开始。** [GitHub 仓库](https://github.com/kaikai23/mac-splat-benchmark) 已公开，HTTPS 克隆不需要 GitHub 账号；模型、GT 与依赖缓存须单独交接，指南提供完整离线流程。
+
 在目标 Mac 上重新运行 **Visionary 1.0.1、Spark.js 0.1.10 原生默认排序、SuperSplat Editor 2.1.0**。完整实验为 **13 场景 × 4 个模型规模 × 3 方法 = 156 配置**，输出阶段时间、端到端完成时间 P50/P95、完成吞吐 FPS，以及重新测量的 PSNR、SSIM、LPIPS。Windows 和之前 Spark 2.1 的结果均不参与本实验的统计。
 
 本仓库保存源码、相机、模型哈希、依赖锁和运行脚本；不保存模型、GT 照片、VGG 权重、依赖安装目录或个人配置。各 Mac 的芯片、内存、macOS、Chrome 及 GPU 后端由运行时采集，不能把一台机器的报告作为另一台的测量。
+
+目标为 Apple Silicon **M1/M2/M3/M4/M5 系列**，按目标机的实际 GPU 能力检测，不写死 M1。当前本地实测验证的是 **M1 Pro**；其他芯片必须在本机通过 probe 和 pilot，不能视为已经验证。跨机器比较应同时记录 CPU、内存、OS、Chrome 和供电条件，不能把全部差异仅归因于 GPU 芯片。
 
 ## 固定实现与实验范围
 
@@ -64,7 +68,7 @@ python3.12 scripts/configure.py \
 
 `configure.py` 默认重新读取并核对全部 52 个模型的 bytes/SHA256，生成忽略的 `config/local.json` 和校验回执。仅配置路径时可加 `--paths-only`，但运行器仍在启动 GPU 前完整校验。自定义 Chrome 用 `--chrome '/path/to/Google Chrome.app/Contents/MacOS/Google Chrome'`。配置路径统一相对仓库根目录解析；也支持绝对路径。示例字段见 [config/example.json](config/example.json)，不得提交实际的 `config/local*.json`。
 
-准备好的 GT 目录须含 `ground-truth-manifest.json` 和 `rgb1280/`。验证器检查 378 张图像的 SHA、相机与图像名、RGB8/1280×720 格式和固定 Pillow 11.3.0 bicubic 变换。可复用经过验证的原照片和 GT；所有渲染图与质量指标必须出自本次新测量。VGG checkpoint SHA 固定为 `397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0`，缺少权重会失败而非自动下载。
+准备好的 GT 目录须含 `ground-truth-manifest.json` 和 `rgb1280/`。验证器依据仓库内固定的 [378 张 GT 像素/来源白名单](scripts/ground-truth-pixels-lock.json)，同时检查文件 SHA、解码后的 RGB8 像素 SHA、原照片来源、相机与图像名及固定变换；不只相信交接目录自己提供的 manifest。**GT 准备和校验必须使用本仓库 `.venv` 中的 Pillow 11.3.0**，固定输出为 1280×720 RGB8、bicubic 缩放。可复用通过该校验的原照片和 GT，不能修改白名单接纳其他像素；所有渲染图与质量指标必须出自本次新测量。VGG checkpoint SHA 固定为 `397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0`，缺少权重会失败而非自动下载。
 
 缺少模型时，先看恢复计划；不会读完整模型或联网：
 
@@ -108,13 +112,16 @@ node run-experiment.cjs --config config/local.json --mode pilot \
   --output results/my-mac-run/pilot/validation/independent-pilot-qa.json
 node run-experiment.cjs --config config/local.json --mode full \
   --output results/my-mac-run/formal
+.venv/bin/python analysis/independent_audit.py \
+  --run-dir results/my-mac-run/formal \
+  --output results/my-mac-run/formal/validation/independent-formal-qa.json
 ```
 
 三个 CPU 验证与 GPU probe 的规范回执保存到 `results/setup`（可通过 `config.validationRoot` 配置）。`validate` 校验 52 模型和 378 相机，不启动 GPU。独立 probe 在实际 GPU 验证时间查询。`pilot` 在 train/bicycle、stride 1/8、全部三方法共 12 配置上实际检验 GPU、时间查询、当前相机、图像与清理；试跑为 1 轮/1 遍且首预热至少 1 秒/128 样本，不能混入正式统计。`full` 执行全部 156 配置，每配置新建浏览器，三方法轮换顺序，且所有方法使用同一相机矩阵。`config.pilotOutput` 指向成功的 12 配置试跑，默认是 `config.outputRoot/pilot`；修改 `--output` 自定义试跑目录时同步配置它。正式运行前强制校验三份 CPU 回执、目标 GPU probe、12 配置试跑的来源、浏览器/系统和完整清理。
 
 运行器独占 `results/gpu-session.lock`，管理自己的 Chrome、Vite（8770/8771/8772）与 `caffeinate` 进程。不要手动删除仍有存活进程的锁，不终止其它用户的 Chrome。中断后保留检查点；以完全相同命令恢复，只复用协议/源码/浏览器/输入一致且完整的配置。更换代码、浏览器或硬件时使用新的输出目录。待 `runtime-cleanup.json` 表示完成且所有自有进程退出后，才运行质量度量。
 
-独立审计不调用运行器或报告模块的统计公式，重新检查全部相机/顺序、时钟、阶段算术、P50/P95/FPS、供电、源码 SHA、截图哈希及 PNG/WebP RGB 一致性，也确认归属进程和端口退出。只在 GPU 锁释放后执行；正式性能结束后用同一命令替换 `--run-dir` 为 formal 目录。阶段查询和超过 E2E 的现象会保留为诊断，不删除原始样本或把查询和当成物理可加和时间。
+独立审计不调用运行器或报告模块的统计公式，重新检查全部相机/顺序、时钟、阶段算术、P50/P95/FPS、供电、源码 SHA、截图哈希及 PNG/WebP RGB 一致性，也确认归属进程和端口退出。只在 GPU 锁释放后执行。正式审计须使用上述明确的 `--output .../validation/independent-formal-qa.json`，与结果打包器要求一致；不要依赖审计器默认的其他文件名。阶段查询和超过 E2E 的现象会保留为诊断，不删除原始样本或把查询和当成物理可加和时间。
 
 ## 4. 新质量度量与报告
 
