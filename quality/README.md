@@ -7,6 +7,9 @@ There is no modified FP16 comparison configuration and no Spark2.1 result input.
 The adapter contains timing/diagnostic instrumentation and compensates the native
 synchronous `prepare` temporary-reference lifecycle; renderer algorithms,
 shaders and WASM are unchanged. This is recorded in the run metadata.
+Only the native 16-bit sorting-key choice matches the upstream runtime default.
+The benchmark explicitly uses `sortRadial=false`, `preBlurAmount=0.3` and
+`blurAmount=0`; their upstream defaults are `true`, `0` and `0.3` respectively.
 
 The immutable `selection.json` contains13 scenes and378 heldout camera dictionaries.
 Three methods × four strides ×378 views gives **4,536 newly rendered images**.
@@ -53,6 +56,15 @@ completion requires156 configurations and exactly4,536 unique views.
 matrix completion true. Checkpoints bind raw, renderer image and GT hashes;
 changed inputs are rejected rather than silently reusing stale scores.
 
+The final analysis requires `RUN/validation/quality-numerical-validation.json`
+with `complete=true`; its metric and validation script hashes must match this
+repository, and its VGG hash must match the actual metric protocol. Run the
+synthetic CPU validation on this code after timing has finished. A previous
+experiment's receipt does not validate the new script identity. Actual-image
+CPU/MPS spot checks and independent full-view PSNR recomputation additionally
+check the measured quality results; synthetic identities alone do not establish
+the correctness of all rendered-view scores.
+
 ## Metric definitions
 
 - **PSNR**: encoded RGB8 divided by255; float64 MSE over every channel/pixel;
@@ -77,6 +89,13 @@ truck/train photos are979×546/980×545, about half their calibration dimensions
 those70 views are upsampled. The source-resolution policy records this explicitly.
 Fixed-framebuffer scores must not be presented as original-paper native-resolution
 scores, and differing renderer quality must not be attributed solely to key width.
+The shared camera centers and GT resize use independent effective `fx`/`fy`.
+SuperSplat retains its native single-focal covariance Jacobian, which uses the
+horizontal focal value for both axes. Effective `fx/fy` across the 378 cameras
+ranges from 0.984859 to 1.186780, with constant intrinsics within each scene.
+This can affect Gaussian footprints, quality and rendering workload. It does
+not imply the full ellipse height changes by that exact ratio; covariance,
+rotation, blur and radius caps remain relevant.
 
 All network acquisition runs on the designated **ecofde** node. Transfer only the
 selected source photos, receipts, pinned wheels and checkpoint to the Mac.

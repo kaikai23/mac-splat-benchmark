@@ -178,8 +178,10 @@ def main():
             if raw['cameras'] != next(s['cameras'] for s in selection['scenes'] if s['scene'] == raw['scene']):
                 raise ValueError(f'Raw cameras differ from frozen quality selection: {path}')
             raw_sha = sha(path)
-            captures = raw.get('qualityCaptures', raw.get('captures', []))
+            captures = raw['qualityCaptures']
             for cap in captures:
+                if not isinstance(cap.get('sha256'), str) or len(cap['sha256']) != 64:
+                    raise ValueError('Quality capture is missing its collection SHA256')
                 entries.append(dict(method=method, scene=raw['scene'], stride=raw['stride'],
                                     camera_index=cap['cameraIndex'], img_name=cap['img_name'],
                                     path=str(resolve_image(cap['path'], path)),

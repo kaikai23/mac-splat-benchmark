@@ -40,8 +40,13 @@ def command(args):
 
 
 def find_chrome(explicit=None):
-    candidates = [explicit, os.environ.get('CHROME_PATH'),
-                  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    chosen = explicit or os.environ.get('CHROME_PATH')
+    if chosen:
+        candidate = resolve(chosen)
+        if not candidate.is_file():
+            raise FileNotFoundError('Explicit Chrome executable is missing: ' + str(candidate))
+        return candidate
+    candidates = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
                   str(Path.home() / 'Applications/Google Chrome.app/Contents/MacOS/Google Chrome')]
     for value in candidates:
         if value and Path(value).expanduser().is_file():

@@ -92,18 +92,29 @@ python3 scripts/restore-models.py verify \
 接通 AC 电源，关闭当前 AC 电源配置的低功耗模式，保持机器空闲；运行器记录观察到的供电状态，不会修改系统设置。不要同时跑另一份基准、MPS 质量指标或大型安装/哈希任务。
 
 ```sh
+node work/supersplat-bench/verify-worker.mjs \
+  --output=results/setup/supersplat-worker.json
+node work/spark-v0.1.10/validate-native-sort.mjs \
+  --output=results/setup/spark-native-sort-cpu-validation.json
+node work/spark-v0.1.10/validate-native-prepare.mjs \
+  --output=results/setup/native-prepare-lifecycle-review.json
 node run-experiment.cjs --config config/local.json --mode validate \
   --output results/my-mac-run/preflight
 node validation/probe-gpu.cjs config/local.json results/setup/gpu-probe
 node run-experiment.cjs --config config/local.json --mode pilot \
   --output results/my-mac-run/pilot
+.venv/bin/python analysis/independent_audit.py \
+  --run-dir results/my-mac-run/pilot \
+  --output results/my-mac-run/pilot/validation/independent-pilot-qa.json
 node run-experiment.cjs --config config/local.json --mode full \
   --output results/my-mac-run/formal
 ```
 
-`validate` 校验 52 模型和 378 相机，不启动 GPU。独立 probe 在实际 GPU 验证时间查询。`pilot` 在 train/bicycle、stride 1/8、全部三方法共 12 配置上实际检验 GPU、时间查询、当前相机、图像与清理；试跑为 1 轮/1 遍且首预热至少 1 秒/128 样本，不能混入正式统计。`full` 执行全部 156 配置，每配置新建浏览器，三方法轮换顺序，且所有方法使用同一相机矩阵。`config.pilotOutput` 指向成功的 12 配置试跑，默认是 `config.outputRoot/pilot`；修改 `--output` 自定义试跑目录时同步配置它。正式运行前校验试跑来源和完整性。
+三个 CPU 验证与 GPU probe 的规范回执保存到 `results/setup`（可通过 `config.validationRoot` 配置）。`validate` 校验 52 模型和 378 相机，不启动 GPU。独立 probe 在实际 GPU 验证时间查询。`pilot` 在 train/bicycle、stride 1/8、全部三方法共 12 配置上实际检验 GPU、时间查询、当前相机、图像与清理；试跑为 1 轮/1 遍且首预热至少 1 秒/128 样本，不能混入正式统计。`full` 执行全部 156 配置，每配置新建浏览器，三方法轮换顺序，且所有方法使用同一相机矩阵。`config.pilotOutput` 指向成功的 12 配置试跑，默认是 `config.outputRoot/pilot`；修改 `--output` 自定义试跑目录时同步配置它。正式运行前强制校验三份 CPU 回执、目标 GPU probe、12 配置试跑的来源、浏览器/系统和完整清理。
 
 运行器独占 `results/gpu-session.lock`，管理自己的 Chrome、Vite（8770/8771/8772）与 `caffeinate` 进程。不要手动删除仍有存活进程的锁，不终止其它用户的 Chrome。中断后保留检查点；以完全相同命令恢复，只复用协议/源码/浏览器/输入一致且完整的配置。更换代码、浏览器或硬件时使用新的输出目录。待 `runtime-cleanup.json` 表示完成且所有自有进程退出后，才运行质量度量。
+
+独立审计不调用运行器或报告模块的统计公式，重新检查全部相机/顺序、时钟、阶段算术、P50/P95/FPS、供电、源码 SHA、截图哈希及 PNG/WebP RGB 一致性，也确认归属进程和端口退出。只在 GPU 锁释放后执行；正式性能结束后用同一命令替换 `--run-dir` 为 formal 目录。阶段查询和超过 E2E 的现象会保留为诊断，不删除原始样本或把查询和当成物理可加和时间。
 
 ## 4. 新质量度量与报告
 
@@ -116,11 +127,15 @@ node run-experiment.cjs --config config/local.json --mode full \
   --gt /Volumes/Experiments/splat-ground-truth \
   --selection quality/selection.json --torch-home .cache/torch \
   --output results/my-mac-run/formal/quality/metrics --device mps
+.venv/bin/python quality/independent_audit.py --config config/local.json \
+  --run-dir results/my-mac-run/formal --threads 2
 .venv/bin/python analysis/analyze.py --config config/local.json \
   --run-dir results/my-mac-run/formal
 ```
 
 Torch/MPS 在实际 Mac 重新计算全部 4,536 张新渲染图的指标；PSNR 使用 RGB8 的 CPU float64 MSE，SSIM 使用固定 11×11 Gaussian，LPIPS 使用官方 VGG v0.1 权重。[质量定义](quality/README.md)记录归一化、边界填充及 GT 缩放限制。不要把这些固定分辨率结果称为原论文原生分辨率分数。
+
+等 MPS 进程退出后，再执行独立 CPU 质量审计。它重新校验全部图像与来源哈希，以精确 RGB8 整数平方误差和 float64 MSE 独立复算全部 4,536 个 PSNR，并核对 156 配置均值和 12 个场景等权聚合。每个场景/方法选完整模型的第 0 个相机，共 39 张，用 SciPy float64 可分离卷积复算 SSIM、官方 CPU LPIPS 复核 MPS 值。先验允许误差为 PSNR `1e-10 dB`、SSIM `5e-5`、LPIPS `1e-4 + 1e-4×|CPU值|`；保留全部原值与差异，失败不会自动放宽阈值。其余视图的 SSIM/LPIPS 检查涵盖完整来源、数值范围和聚合，不声称逐图 CPU 重算。通过回执为 `validation/independent-quality-qa.json`。
 
 结果目录包含 `protocol.json`、环境/源哈希、`raw/*.json`、逐配置供电记录、PNG/WebP、新质量 JSONL 和覆盖校验，以及 `analysis/` 下中英报告、CSV、图、LaTeX 表。只有精确的 156 配置/4,536 质量图完整通过，分析器才产出完整报告。详细结构见 [analysis/README.md](analysis/README.md)。
 
@@ -128,13 +143,4 @@ Torch/MPS 在实际 Mac 重新计算全部 4,536 张新渲染图的指标；PSNR
 
 ## 可复核的 CPU 检查
 
-```sh
-node work/supersplat-bench/verify-worker.mjs \
-  --output=results/setup/supersplat-worker.json
-node work/spark-v0.1.10/validate-native-sort.mjs \
-  --output=results/setup/spark-native-sort-cpu-validation.json
-node work/spark-v0.1.10/validate-native-prepare.mjs \
-  --output=results/setup/native-prepare-lifecycle-review.json
-```
-
-SuperSplat 检查官方源码、发行 Worker 与计时版的完整输出顺序/计数一致性。Spark 的原生排序验证、host 构建回执及插桩证据见其 [BENCHMARK.md](work/spark-v0.1.10/BENCHMARK.md)。这些 CPU 检查不代替目标 Mac 的 GPU 试跑。
+第 3 步中的 SuperSplat 检查官方源码、发行 Worker 与计时版的完整输出顺序/计数一致性。Spark 检查官方 Worker/WASM 的全 65,536 种 half 位模式、随机与平局排序，以及原生同步准备的临时引用补偿。原生排序验证、host 构建回执及插桩证据见其 [BENCHMARK.md](work/spark-v0.1.10/BENCHMARK.md)。这些 CPU 检查不代替目标 Mac 的 GPU 试跑。

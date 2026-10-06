@@ -99,6 +99,8 @@ def validate_metadata(raw, method, definition, protocol):
                 require(meta['sortBits'] == definition['sortBits'] and definition['sortBits'] in (16, 32), 'Native Spark sorting width differs')
                 require(meta['gpuMetricMode'] == 'separate-pass' and meta['depthBias'] == 1
                         and meta['sort32'] is (definition['sortBits'] == 32), 'Native Spark separate depth-key pass differs')
+                require(meta['sortRadial'] is False and meta['preBlurAmount'] == .3 and meta['blurAmount'] == 0,
+                        'Explicit Spark benchmark parameters differ')
                 require(definition.get('algorithmModified') is False and bool(meta.get('modified', False)) == bool(definition.get('modified')),
                         'Only official Spark algorithms with declared timing instrumentation are in scope')
                 if definition.get('modificationId'):
@@ -128,6 +130,17 @@ def validate_quality(run, rows, captures, selection, gt_root, audit):
     qp = read(protocol_path)
     require(qp['collection_protocol_sha256'] == audit.source(run / 'protocol.json'), 'Quality belongs to a different run')
     audit.source(ROOT / 'quality/measure_quality.py', qp['script_sha256'])
+    numerical_path = run / 'validation/quality-numerical-validation.json'
+    audit.source(numerical_path)
+    numerical = read(numerical_path)
+    require(numerical['complete'] is True and numerical['device'] == 'cpu', 'Full new CPU numerical validation missing')
+    audit.source(ROOT / 'quality/validate_metrics.py', numerical['validation_script_sha256'])
+    require(numerical['metrics_script_sha256'] == qp['script_sha256'], 'Numerical validation belongs to a different metric implementation')
+    checks = numerical['checks']
+    require(all(checks[k] is True for k in ('psnr_analytic', 'psnr_identity', 'ssim_identity', 'ssim_independent_scipy'))
+            and checks['ssim_abs_error'] < 2e-6 and checks['lpips']['passed'] is True
+            and checks['lpips']['checkpoint_sha256'] == qp['vgg_weight_sha256'],
+            'PSNR/SSIM/LPIPS numerical validation differs or is incomplete')
     per_view = directory / 'per-view.jsonl'
     audit.source(per_view, summary['per_view_sha256'])
     gt_manifest_path = gt_root / 'ground-truth-manifest.json'
@@ -183,6 +196,18 @@ def validate_quality(run, rows, captures, selection, gt_root, audit):
             'Expected three methods times four unique quality scales')
     require(summary['render_images'] == summary['expected_render_images'] == 4536, 'Quality summary image counts differ')
     audit.source(directory / 'capture-manifest.json', summary['capture_manifest_sha256'])
+    independent_path = run / 'validation/independent-quality-qa.json'
+    audit.source(independent_path)
+    independent = read(independent_path)
+    require(independent['passed'] is True and independent['complete'] is True
+            and independent['qualitySummarySha256'] == audit.source(summary_path)
+            and independent['perViewSha256'] == audit.source(per_view)
+            and independent['metricsProtocolSha256'] == audit.source(protocol_path),
+            'Independent full PSNR and actual-image quality audit is missing or belongs to different results')
+    require(independent['sourceReceipts'], 'Independent quality audit has no bound sources')
+    for source in independent['sourceReceipts']:
+        value = Path(source['path'])
+        audit.source(value if value.is_absolute() else ROOT / value, source['sha256'])
     return summary, gt, qp
 
 
@@ -227,11 +252,55 @@ def validate_prerequisites(run, protocol, audit):
     required_checks = {'gpu-probe-metal.json', 'spark-native-sort-cpu-validation.json',
                        'supersplat-worker.json', 'native-prepare-lifecycle-review.json'}
     checks = [p for p in source_paths if p.name in required_checks]
-    require(len(source_paths) == 18 and len(checks) == 4 and {p.name for p in checks} == required_checks,
+    require(len(source_paths) >= 18 and len(checks) == 4 and {p.name for p in checks} == required_checks,
             'Expected source-bound GPU probe and three CPU prerequisites')
     for check in checks:
         require(read(check)['passed'] is True, 'Prerequisite check did not pass: ' + check.name)
     return receipt
+
+
+def validate_timer_review(config, protocol, audit):
+    configured = Path(config.get('validationRoot', 'results/setup'))
+    setup = (configured if configured.is_absolute() else ROOT / configured).resolve()
+    path = setup / 'timer-domain-review.json'
+    if not path.exists():
+        return None
+    review = read(path)
+    audit.source(path)
+    require(review['status'] == 'completed-with-explicit-timer-domain-limitation'
+            and review['frozenCaptureSourceChanged'] is False and review['formalProtocolChanged'] is False,
+            'Timer diagnostic unexpectedly changed the formal baseline')
+    for source in review['localSources']:
+        require(protocol['experimentHashes'][source['path']] == source['sha256'],
+                'Timer review source differs from formal renderer')
+        audit.source(ROOT / source['path'], source['sha256'])
+    diagnostic = review['diagnostic']
+    for case in diagnostic['cases']:
+        require(case['browserVersion'] == protocol['browserVersion'].replace('Google Chrome ', '').strip(),
+                'Timer review browser differs from this formal run')
+        raw_path = ROOT / case['rawPath']
+        audit.source(raw_path, case['rawSha256'])
+        raw = read(raw_path)
+        chip = protocol['hostIdentity']['hardware']['SPHardwareDataType'][0]['chip_type']
+        require(chip in raw['finalMetadata']['renderer'] and raw['status'] == 'complete',
+                'Timer diagnostic hardware differs from this formal run')
+        audit.source(ROOT / raw['sourceRawPath'], raw['sourceRawSha256'])
+    runtime_path = ROOT / diagnostic['runtimeCleanup']['path']
+    audit.source(runtime_path, diagnostic['runtimeCleanup']['sha256'])
+    cleanup = read(runtime_path)
+    require(cleanup['passed'] is True and cleanup['complete'] is True and cleanup['gpuLockReleased'] is True
+            and all(c['alive'] is False for c in cleanup['children']), 'Timer diagnostic cleanup incomplete')
+    summary_path = setup / 'timer-diagnostic/summary.json'
+    audit.source(summary_path)
+    summary = read(summary_path)
+    require(summary['passed'] is True and summary['runs'] == diagnostic['cases'], 'Timer diagnostic summary differs')
+    audit.source(setup / 'timer-domain-review.md')
+    review['evidenceFiles'] = [
+        {'label': 'Timer API domain review', 'sourcePath': str(path), 'reportPath': 'evidence/timer-domain-review.json'},
+        {'label': 'Timer review narrative', 'sourcePath': str(setup / 'timer-domain-review.md'), 'reportPath': 'evidence/timer-domain-review.md'},
+        {'label': 'Isolated timer diagnostic summary', 'sourcePath': str(summary_path), 'reportPath': 'evidence/timer-diagnostic/summary.json'},
+        {'label': 'Isolated timer cleanup', 'sourcePath': str(runtime_path), 'reportPath': 'evidence/timer-diagnostic/runtime-cleanup.json'}]
+    return review
 
 
 def analyze(run, config, out):
@@ -245,6 +314,7 @@ def analyze(run, config, out):
             and all(c.get('alive') is False for c in cleanup.get('children', [])), 'Run/owned process cleanup incomplete')
     audit.source(run / 'protocol.json'); audit.source(run / 'runtime-cleanup.json')
     prerequisites = validate_prerequisites(run, protocol, audit)
+    timer_review = validate_timer_review(config, protocol, audit)
     host_path = run / 'environment/host-inventory.json'
     audit.source(host_path, protocol['hostInventorySha256'])
     host = read(host_path)
@@ -257,7 +327,8 @@ def analyze(run, config, out):
     models = {(r['scene'], 1): r['ply'] for r in manifest['scenes']}
     models.update({(r['scene'], r['stride']): r for r in subsets['subsets']})
     locked_sha = {r['relative_path']: r['sha256'] for r in models.values()}
-    require(len(locked_sha) == 52 and all(r['sha256'] == r['expectedSha256'] == locked_sha[r['relative_path']]
+    require(len(locked_sha) == 52 and {r['relative_path'] for r in integrity['models']} == set(locked_sha)
+            and all(r['sha256'] == r['expectedSha256'] == locked_sha[r['relative_path']]
                                         for r in integrity['models']), 'Frozen model integrity differs')
     require(set(protocol['methodDefinitions']) == set(METHODS), 'Expected three method definitions')
     require(set(protocol['scenes']) == set(SCENES) and protocol['strides'] == list(STRIDES)
@@ -272,10 +343,21 @@ def analyze(run, config, out):
     audit.source(ROOT / 'quality/selection.json')
     selected = {s['scene']: s for s in selection['scenes']}
     require(set(selected) == set(SCENES) and sum(len(s['cameras']) for s in selected.values()) == 378, 'Frozen selection differs')
+    projection = []
+    for scene in SCENES:
+        cameras = selected[scene]['cameras']
+        fx_values = [c['fx'] * 1280 / c['width'] for c in cameras]
+        fy_values = [c['fy'] * 720 / c['height'] for c in cameras]
+        ratios = [fx / fy for fx, fy in zip(fx_values, fy_values)]
+        projection.append({'scene': scene, 'views': len(cameras), 'effective_fx_px': fx_values[0],
+                           'effective_fy_px': fy_values[0], 'effective_fx_over_fy_min': min(ratios),
+                           'effective_fx_over_fy_max': max(ratios),
+                           'intrinsics_constant_within_scene': len(set(zip(fx_values, fy_values))) == 1})
     environment = {**parse_os(host), 'browser_name': 'Google Chrome', 'browser_version': protocol['browserVersion'],
                    'framebuffer_width': 1280, 'framebuffer_height': 720, 'viewport_width': 1280, 'viewport_height': 760,
                    'device_pixel_ratio': 1, 'browser_headless': True}
     rows, rounds, e2e_samples, raf_rows, pngs, capture_map = [], [], [], [], [], {}
+    render_parameters = {}
     seen = set()
     for path in sorted((run / 'raw').glob('*.json')):
         raw = read(path)
@@ -283,6 +365,7 @@ def analyze(run, config, out):
         require(key[0] in METHODS and key[1] in SCENES and key[2] in STRIDES and key not in seen, 'Unexpected/duplicate configuration')
         seen.add(key)
         method, scene, stride = key
+        require(raw['engine'] == method, 'Canonical method/engine identity differs')
         require(raw['status'] == 'complete' and not raw.get('error') and not raw.get('errors'), 'Incomplete/error raw: ' + path.name)
         require(raw['protocolId'] == protocol['protocolId'] and raw['experimentHashes'] == protocol['experimentHashes'], 'Raw protocol/source identity differs')
         require(raw['cameras'] == selected[scene]['cameras'] and raw['cameraFileSha256'] == selected[scene]['camera_sha256'], 'Frozen camera identity differs')
@@ -290,6 +373,13 @@ def analyze(run, config, out):
                 'Raw model identity differs from the frozen original/stride model')
         require(raw['powerViolations'] == [], 'Observed power violation')
         validate_metadata(raw, method, protocol['methodDefinitions'][method], protocol)
+        parameter_keys = {'visionary': ('kernelSize', 'shDegree', 'precision'),
+                          'spark': ('sortBits', 'sort32', 'sortRadial', 'preBlurAmount', 'blurAmount', 'keyEncoding', 'prepareLifecycleAdaptation'),
+                          'supersplat': ('nativeProjectionFootprint', 'nativeRasterRules', 'modelCoordinateAdaptation')}[method]
+        parameters = {k: raw['metadata'][k] for k in parameter_keys}
+        require(method not in render_parameters or render_parameters[method] == parameters,
+                'Renderer parameters changed across configurations')
+        render_parameters[method] = parameters
         stage, stage_rounds, warnings = summarize(raw, method)
         completion, completion_rounds = summarize_completion(raw)
         raw_sha = audit.source(path)
@@ -305,6 +395,7 @@ def analyze(run, config, out):
             require(all(s['sortBits'] == protocol['methodDefinitions']['spark']['sortBits'] for s in samples),
                     'Per-sample native Spark key width differs')
         row['stage_exceeds_e2e_samples'] = sum((s['gpu']['totalMs'] if method == 'visionary' else s['stageCostSumMs']) > s['e2eCompletionMs'] for s in samples)
+        row['max_stage_to_e2e_ratio'] = max((s['gpu']['totalMs'] if method == 'visionary' else s['stageCostSumMs']) / s['e2eCompletionMs'] for s in samples)
         row['round_cv_percent'] = 100 * row['stage_cost_ms_sd'] / row['stage_cost_ms_mean']
         rows.append(row)
         for s, c in zip(stage_rounds, completion_rounds): rounds.append({**identity, **s, **c, **environment})
@@ -348,7 +439,9 @@ def analyze(run, config, out):
     report = {'schema': 'portable-three-method-report-v1', 'complete': True, 'generatedAt': now(),
               'protocolId': protocol['protocolId'], 'protocol': protocol, 'hostInventory': host, 'environment': environment,
               'methodDefinitions': protocol['methodDefinitions'], 'configurations': rows, 'aggregates': aggregates,
+              'renderParameters': render_parameters, 'projectionIntrinsics': projection,
               'quality': quality, 'qualityProtocol': quality_protocol, 'prerequisites': prerequisites, 'nativeRaf': raf_rows,
+              'timerDomainReview': timer_review,
               'captureCount': len(pngs), 'qualityCaptureCount': len(capture_map),
               'roundCount': len(rounds), 'sampleCount': len(e2e_samples),
               'startedAt': min(r['started_at'] for r in rows), 'completedAt': max(r['completed_at'] for r in rows),
@@ -356,6 +449,7 @@ def analyze(run, config, out):
     write_csv(out / 'configurations.csv', rows); write_csv(out / 'round-means.csv', rounds)
     write_csv(out / 'e2e-samples.csv', e2e_samples); write_csv(out / 'aggregates.csv', aggregates)
     write_csv(out / 'native-raf.csv', raf_rows)
+    write_csv(out / 'projection-intrinsics.csv', projection)
     write_json(out / 'report.json', report)
     qa = {'passed': True, 'complete': True, 'configurations': 156, 'rounds': 780, 'samples': 68040,
           'pngCaptures': 234, 'qualityViews': 4536, 'qualityComplete': True,

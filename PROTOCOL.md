@@ -33,12 +33,17 @@ measurements never enter formal result tables.
 
 ## Native Spark 0.1.10 settings
 
-The selected Spark configuration uses its **actual runtime default**, native
+The selected Spark sorting option uses its **actual runtime default**, native
 16-bit GPU-generated depth keys with the official CPU WASM bucket sorter.
 `SparkViewpoint.sortUpdate` evaluates `this.sort32 ?? false`; the upstream API
 comment claiming a true default is inconsistent with that implementation.
 The experiment records `sort32=false`, `depthBias=1`, `sortRadial=false` and
 `sort360=false`. No custom half conversion, saturation or CPU compaction is added.
+The word default applies to sorting precision only. Other benchmark parameters
+are explicit: `sortRadial=false` uses axial depth (the upstream default is true),
+and `preBlurAmount=0.3, blurAmount=0` uses the archived benchmark's preparation
+blur convention (upstream defaults are 0 and 0.3). Those settings are recorded,
+not represented as the application's complete default preset.
 
 This version has a standalone GPU depth-key pass. Timer instrumentation records
 that pass separately from Gaussian preparation and drawing. The official module
@@ -89,6 +94,22 @@ stage queries. Its ordering buffer update is submitted during Three.js drawing;
 GPU upload cost is not separately isolated. SuperSplat preparation is fused into
 draw and must not be reported as independently measured zero time. CPU draw-only
 time is not separately measured for any method.
+
+The report also counts samples whose selected stage sum exceeds independently
+measured completion latency. GPU query values and CPU intervals belong to
+different timing domains; their sum is retained as an API-reported diagnostic,
+not a calibrated physical serial interval or exclusive GPU-work duration. No
+sample is clipped or removed because of this discrepancy. Speed conclusions
+use the independent completion clock and completed-frame FPS.
+
+SuperSplat uses the Editor's native Splat/AssetLoader rendering path and native
+PlayCanvas material, excluding editor UI, selection and overlay drawing. Its
+native covariance calculation uses the horizontal focal value for both axes,
+while camera centers and ground truth retain independent fx/fy scaling. The
+effective fx/fy ratio ranges from 0.984859 to 1.186780 in these cameras; bicycle
+is 1.186780. Thus vertical Gaussian footprints can differ, even when image
+centers and camera poses agree. This native projection limitation can affect
+both speed and image quality and is not corrected by the benchmark.
 
 ## Reconstruction quality
 
