@@ -15,6 +15,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import socket
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -341,12 +342,13 @@ def audit_configuration(audit, raw_path, protocol, camera, model, repeats, cycle
                                     sourceRawSha256=sha(raw_path)))
 
 
-def perform(run, setup):
+def perform(run, setup, allow_partial=False):
     require(not (ROOT / 'results/gpu-session.lock').exists(), 'A GPU session lock exists; audit waits until GPU work is finished')
     audit = Audit(run)
     protocol_file = run / 'protocol.json'; protocol = read(protocol_file); audit.source(protocol_file)
     pilot = protocol['pilot']
     require(type(pilot) is bool, 'Protocol mode missing')
+    require(not (pilot and allow_partial), '--allow-partial is only for an explicitly paused formal run')
     scenes, strides, repeats, cycles, warmup_ms = (['bicycle', 'train'], [1, 8], 1, 1, 1000) if pilot else (SCENES, [1, 2, 4, 8], 5, 3, 10000)
     expected_keys = {f'{s}-s{k}-{m}' for s in scenes for k in strides for m in METHODS}
     require(protocol['methods'] == METHODS and protocol['repeats'] == repeats and protocol['cycles'] == cycles,
@@ -408,24 +410,42 @@ def perform(run, setup):
         require(integrity['cameras'][entry['scene']] == entry['sha256'], 'Preflight camera identity differs')
         cameras[entry['scene']] = dict(views=views, sha256=entry['sha256'])
     files = {p.stem: p for p in (run / 'raw').glob('*.json')}
-    require(set(files) == expected_keys, 'Raw collection incomplete or contains extra configurations')
-    for key in protocol['configurationOrder']:
+    require(bool(files) and (set(files) <= expected_keys if allow_partial else set(files) == expected_keys),
+            'Raw collection incomplete or contains extra configurations')
+    observed_keys = set(files)
+    partial = observed_keys != expected_keys
+    for key in [k for k in protocol['configurationOrder'] if k in observed_keys]:
         raw = read(files[key]); scene, stride = raw['scene'], raw['stride']
         audit_configuration(audit, files[key], protocol, cameras[scene], models[scene, stride], repeats, cycles, warmup_ms)
-    require(audit.captures == set((run / 'captures').glob('*.png')), 'Extra/missing display PNG files')
-    require(audit.quality == set((run / 'quality-captures').glob('*.webp')), 'Extra/missing quality WebP files')
-    require(not list((run / 'quality-captures').glob('*.png')), 'Incomplete temporary quality PNGs remain')
-    expected = dict(configurations=12 if pilot else 156, rounds=12 if pilot else 780,
-                    samples=378 if pilot else 68040, displayPngs=24 if pilot else 234,
-                    qualityWebps=378 if pilot else 4536, rafIntervals=2160 if pilot else 14040,
-                    workerPoseSamples=252 if pilot else 45360)
+    orphan_images = []
+    for actual, verified in [(set((run / 'captures').glob('*.png')), audit.captures),
+                             (set((run / 'quality-captures').glob('*.webp')), audit.quality),
+                             (set((run / 'quality-captures').glob('*.png')), set())]:
+        require(verified <= actual, 'An audited capture disappeared')
+        for file in actual - verified:
+            match = re.fullmatch(r'(.+)-v\d{3}\.(?:png|webp)', file.name)
+            require(partial and match and match[1] in expected_keys - observed_keys,
+                    'Extra capture is not attributable to an unfinished configuration: ' + file.name)
+            orphan_images.append(str(file.relative_to(run)))
+    selected_raw = [read(path) for path in files.values()]
+    expected = dict(configurations=len(files), rounds=len(files) * repeats,
+                    samples=sum(len(r['cameras']) * repeats * cycles for r in selected_raw),
+                    displayPngs=sum(3 if r['stride'] == 1 else 1 for r in selected_raw),
+                    qualityWebps=sum(len(r['cameras']) for r in selected_raw),
+                    rafIntervals=sum(360 for r in selected_raw if r['stride'] == 1),
+                    workerPoseSamples=sum(len(r['cameras']) * repeats * cycles for r in selected_raw if r['method'] != 'visionary'))
     for key, value in expected.items():
         require(audit.counts[key] == value, 'Final audit count differs: ' + key)
     runtime_path = run / 'runtime-cleanup.json'; runtime = read(runtime_path); audit.source(runtime_path)
-    require(runtime['complete'] and runtime['passed'] and runtime['gpuLockReleased'] and
-            all(not item['alive'] for item in runtime['children']), 'Runner did not complete owned-resource cleanup')
+    require(runtime.get('finishedAt') and runtime['gpuLockReleased'] and
+            all(not item['alive'] for item in runtime['children']), 'Runner did not finish owned-resource cleanup')
+    if partial:
+        require(not runtime['complete'] and not runtime['passed'] and runtime.get('signal') in ['SIGINT', 'SIGTERM', 'SIGHUP'],
+                'Partial collection must be an explicitly interrupted formal run')
+    else:
+        require(runtime['complete'] and runtime['passed'], 'Full runner completion was not established')
     recorded = {c['key']: c for c in runtime['configurations']}
-    require(set(recorded) == expected_keys and len(recorded) == len(runtime['configurations']), 'Runtime raw inventory differs')
+    require(set(recorded) == observed_keys and len(recorded) == len(runtime['configurations']), 'Runtime raw inventory differs')
     for key, item in recorded.items():
         audit.source(files[key], item['sha256']); require(item['status'] == 'complete', 'Runtime marks raw incomplete')
     pids = [runtime['runnerPid']] + [item['pid'] for item in runtime['ownedPids']]
@@ -441,6 +461,11 @@ def perform(run, setup):
             sock.settimeout(.25); listening = sock.connect_ex(('127.0.0.1', port)) == 0
         require(not listening, 'Expected owned host port to be closed: ' + str(port)); ports.append(port)
     return dict(schema='independent-mac-three-method-performance-audit-v1', passed=True,
+                complete=not partial, partial=partial, fullMatrixComplete=not pilot and not partial,
+                auditScope='explicit-complete-configuration-subset' if partial else ('complete-pilot' if pilot else 'complete-formal'),
+                coverage=dict(completedConfigurations=len(observed_keys), expectedConfigurations=len(expected_keys),
+                              completedKeys=sorted(observed_keys), unmeasuredKeys=sorted(expected_keys - observed_keys)),
+                excludedUnfinishedCaptureFiles=orphan_images,
                 createdAt=datetime.now(timezone.utc).isoformat(), runDirectory=os.path.relpath(run, ROOT),
                 pilot=pilot, protocolId=protocol['protocolId'], counts=dict(audit.counts), expectedCounts=expected,
                 sourceFilesVerified=len(protocol['experimentHashes']), modelPolicy='Verified all52 identities against bound pre-GPU full-SHA receipt; no post-run model rehash',
@@ -460,11 +485,12 @@ def main():
     parser.add_argument('--run-dir', type=Path, required=True)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--validation-root', type=Path, default=ROOT / 'results/setup')
+    parser.add_argument('--allow-partial', action='store_true', help='Audit only complete raw configurations in a deliberately paused formal run; never claim full completion')
     args = parser.parse_args()
     run = args.run_dir.resolve()
     output = args.output.resolve() if args.output else run / 'validation/independent-audit.json'
     try:
-        result = perform(run, args.validation_root.resolve())
+        result = perform(run, args.validation_root.resolve(), args.allow_partial)
     except Exception as error:
         result = dict(schema='independent-mac-three-method-performance-audit-v1', passed=False,
                       createdAt=datetime.now(timezone.utc).isoformat(), runDirectory=os.path.relpath(run, ROOT),

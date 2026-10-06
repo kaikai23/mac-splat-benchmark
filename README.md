@@ -137,6 +137,8 @@ Torch/MPS 在实际 Mac 重新计算全部 4,536 张新渲染图的指标；PSNR
 
 等 MPS 进程退出后，再执行独立 CPU 质量审计。它重新校验全部图像与来源哈希，以精确 RGB8 整数平方误差和 float64 MSE 独立复算全部 4,536 个 PSNR，并核对 156 配置均值和 12 个场景等权聚合。每个场景/方法选完整模型的第 0 个相机，共 39 张，用 SciPy float64 可分离卷积复算 SSIM、官方 CPU LPIPS 复核 MPS 值。先验允许误差为 PSNR `1e-10 dB`、SSIM `5e-5`、LPIPS `1e-4 + 1e-4×|CPU值|`；保留全部原值与差异，失败不会自动放宽阈值。其余视图的 SSIM/LPIPS 检查涵盖完整来源、数值范围和聚合，不声称逐图 CPU 重算。通过回执为 `validation/independent-quality-qa.json`。
 
+若用户在配置边界暂停正式运行，可显式给两个独立审计程序传入 `--allow-partial`，只审计已完整落盘的配置；逐配置验证保持不变，并要求归属进程退出和 GPU 锁释放。质量审计支持 `--metrics-dir`、`--numerical-validation` 和 `--output`，可将预览指标与回执放在单独的 `results/<run-id>/preview/` 目录。部分结果即使审计通过也保持 `complete=false`、`partial=true`，报告必须列出实际覆盖，跨方法摘要只比较共同完成的场景；CPU SSIM/LPIPS 抽查覆盖每个已完成完整模型配置的第 0 个相机。默认审计仍要求全部 156 配置和 4,536 张质量图像。
+
 结果目录包含 `protocol.json`、环境/源哈希、`raw/*.json`、逐配置供电记录、PNG/WebP、新质量 JSONL 和覆盖校验，以及 `analysis/` 下中英报告、CSV、图、LaTeX 表。只有精确的 156 配置/4,536 质量图完整通过，分析器才产出完整报告。详细结构见 [analysis/README.md](analysis/README.md)。
 
 主要 E2E 从浏览器 `await bench.sample(camera)` 前到 Promise 返回，包含当前相机设置、新排序、GPU 完成确认、查询读回/轮询和插桩；**不表示物理屏幕显示延迟**。P50/P95 为全部逐帧完成样本的 Type7 分位数。FPS 为 `1000 × 完成样本数 / Σ轮次浏览器窗口毫秒`，是串行完成吞吐；原生 rAF callback 吞吐另列。阶段时间保持各引擎原来的边界，不将阶段倒数冒充 FPS。跨场景等权平均每场景统计，不能与池化分位数或延迟倒数混淆。

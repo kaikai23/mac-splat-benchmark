@@ -148,3 +148,40 @@ Those diagnostic samples never enter formal aggregates. Adjacent API query
 intervals can be sensitive to predecessor completion; this does not establish
 exclusive GPU costs or a verified internal ANGLE cause. Serialized diagnostic
 waits are not the production protocol and their FPS is not a baseline result.
+
+## Fixed-scope partial preview
+
+When collection is deliberately paused, `preview.py` produces a separate report
+without relaxing any full-matrix requirement in `analyze.py`. It requires exited
+owned processes, released GPU locks, and an immutable
+`PREVIEW/validation/scope-manifest.json` containing the selected completed raw
+paths and their SHA256 values. Later additions to the formal run cannot silently
+expand that preview. Relative CLI paths resolve from the repository root.
+
+```sh
+.venv/bin/python analysis/preview.py \
+  --config config/local.json \
+  --run-dir results/RUN/formal \
+  --quality-dir results/RUN/preview-34/quality \
+  --output results/RUN/preview-34/report \
+  --require-quality
+```
+
+Omit `--require-quality` only for an explicitly pending draft. Final acceptance
+requires completed quality for every selected view plus the preview's
+`partial-performance-qa.json`, `independent-quality-qa.json` and
+`quality-numerical-validation.json`. A successful partial audit does not mark the
+156-configuration experiment complete. The supplied scope is currently 34
+configurations: eleven shared scenes × three methods, plus truck/SuperSplat.
+
+The HTML and exports expose configuration, stage-component, round, view and
+individual-sample levels. `quality-views.csv` joins each view's fifteen measured
+completion samples (five rounds × three visits) with its actual PSNR/SSIM/LPIPS.
+It includes view mean/P50/P95, not an invented view FPS; FPS comes from complete
+configuration loop windows. Balanced summaries are recalculated from only the
+eleven scenes shared by all three methods. The unmatched truck result remains
+visible in detail and is excluded from the balanced comparison.
+
+`report/` is independently viewable: its HTML links to local CSV/JSON, exact-byte
+gallery images and copied evidence. Build and gallery receipts bind all output
+hashes. No missing stride or configuration is filled from pilot or earlier runs.

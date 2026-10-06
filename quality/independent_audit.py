@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independently audit all 4536 quality rows, then 39 deterministic CPU references.
+"""Independently audit full or explicitly partial quality rows and CPU references.
 
 Run only after performance and MPS quality processes have exited. This program
 never imports measure_quality, never requests MPS/CUDA, and never downloads.
@@ -173,15 +173,18 @@ def audit(args, state):
     run, gt_root, torch_home = args.run_dir, args.gt, args.torch_home
     for lock in [ROOT / 'results/gpu-session.lock', run / 'gpu-session.lock', run.parent / 'gpu-session.lock']:
         require(not lock.exists(), 'A performance/quality GPU session lock remains; wait for the separate CPU audit phase')
-    result_root = run / 'quality/metrics'
+    result_root = args.metrics_dir or run / 'quality/metrics'
     summary_path, per_view_path = result_root / 'quality-summary.json', result_root / 'per-view.jsonl'
     protocol_path, capture_path = result_root / 'metrics-protocol.json', result_root / 'capture-manifest.json'
     summary, protocol = read(summary_path), read(protocol_path)
-    require(summary['complete'] is True and summary['referenceType'] == 'ground-truth' and
-            summary['render_images'] == summary['expected_render_images'] == 4536 and
+    require((summary['complete'] is True or args.allow_partial) and summary['referenceType'] == 'ground-truth' and
+            summary['expected_render_images'] == 4536 and 0 < summary['render_images'] <= 4536 and
             summary['metrics'] == ['psnr', 'ssim', 'lpips'], 'Formal full quality results are not complete')
+    partial = summary['render_images'] != 4536
+    require(not partial or (args.allow_partial and summary['complete'] is False), 'Incomplete quality requires explicit partial mode')
+    require(partial or summary['complete'] is True, 'Full-count quality still requires a completed summary')
     require(summary['coverage'] == dict(methods=3, scenes=13, strides=STRIDES, heldout_views=378,
-                                       expected_captures=4536, actual_captures=4536), 'Summary coverage metadata differs')
+                                       expected_captures=4536, actual_captures=summary['render_images']), 'Summary coverage metadata differs')
     require(summary['aggregation'] == protocol['aggregation'], 'Summary aggregation declaration differs')
     require(protocol['schema'] == 'portable-three-method-quality-v1' and protocol['device'] == 'mps' and
             protocol['dtype'] == 'float32', 'This audit expects the completed MPS quality collection')
@@ -189,10 +192,16 @@ def audit(args, state):
     cleanup_path = run / 'runtime-cleanup.json'; cleanup = read(cleanup_path)
     require(collection['pilot'] is False and collection['expectedConfigurations'] == 156 and
             collection['expectedSamples'] == 68040 and collection['methods'] == METHODS, 'Wrong formal collection scope')
-    require(cleanup['complete'] and cleanup['passed'] and cleanup['gpuLockReleased'] and
+    require(cleanup.get('finishedAt') and cleanup['gpuLockReleased'] and
             all(not child['alive'] for child in cleanup['children']), 'Performance resources did not cleanly exit')
+    if partial:
+        require(not cleanup['complete'] and not cleanup['passed'] and cleanup.get('signal') in ['SIGINT', 'SIGTERM', 'SIGHUP'],
+                'Partial quality must belong to an intentionally paused formal performance run')
+    else:
+        require(cleanup['complete'] and cleanup['passed'], 'Full performance completion is missing')
     runtime_raw = {entry['key']: entry for entry in cleanup['configurations']}
-    require(len(runtime_raw) == len(cleanup['configurations']) == 156, 'Finalized raw inventory has duplicates/missing configurations')
+    require(len(runtime_raw) == len(cleanup['configurations']) and 0 < len(runtime_raw) <= 156 and
+            (partial or len(runtime_raw) == 156), 'Finalized raw inventory has duplicates/missing configurations')
     require(protocol['collection_protocol_id'] == collection['protocolId'] and
             protocol['method_definitions'] == collection['methodDefinitions'], 'Quality/collection protocols differ')
     for method, identity in PINS.items():
@@ -206,6 +215,17 @@ def audit(args, state):
     state.update(bindings)
     a.source(capture_path, summary['capture_manifest_sha256'])
     a.source(collection_path, protocol['collection_protocol_sha256']); a.source(cleanup_path)
+    scope_path = result_root / 'collection-scope.json'; scope = read(scope_path)
+    a.source(scope_path, summary['collection_scope_sha256'])
+    require(scope['schema'] == 'portable-quality-collection-scope-v1' and
+            scope['allow_partial'] is summary['partial_mode'] is partial and
+            scope['collection_complete'] is summary['collection_complete'] is cleanup['complete'] and
+            scope['full_capture_matrix_complete'] is summary['fullCaptureMatrixComplete'] is (not partial) and
+            scope['requested_subset_complete'] is summary['requestedSubsetComplete'] is True and
+            scope['configurations'] == len(runtime_raw) and scope['render_images'] == summary['render_images'] and
+            scope['expected_configurations'] == 156 and scope['expected_render_images'] == 4536,
+            'Explicit quality scope/summary differs from the finalized complete-configuration subset')
+    a.source(cleanup_path, scope['cleanup_sha256']); a.source(collection_path, scope['collection_protocol_sha256'])
     a.source(ROOT / 'quality/measure_quality.py', protocol['script_sha256'])
     selection_path = ROOT / 'quality/selection.json'; selection = read(selection_path)
     a.source(selection_path, protocol['selection_file_sha256'])
@@ -233,13 +253,17 @@ def audit(args, state):
         require(entry['img_name'] == cameras[identity]['img_name'] and
                 entry['camera_sha256'] == scenes[identity[0]]['camera_sha256'], 'GT image/camera mismatch')
         a.source(within(gt_root, entry['relative_path']), entry['sha256'])
-    expected = {(method, scene, stride, index) for method in METHODS for scene, index in cameras for stride in STRIDES}
+    full_expected = {(method, scene, stride, index) for method in METHODS for scene, index in cameras for stride in STRIDES}
     entries = {}
     raw_files = list((run / 'raw').glob('*.json'))
-    require(len(raw_files) == 156, 'Formal raw coverage differs')
+    require(len(raw_files) == len(runtime_raw), 'Complete raw coverage differs from the finalized runtime inventory')
+    scope_raw = {within(run, entry['raw_path']): entry['raw_sha256'] for entry in scope['sources']}
+    require(len(scope_raw) == len(scope['sources']) == len(raw_files) and
+            set(scope_raw) == {path.resolve() for path in raw_files}, 'Quality collection scope raw inventory differs')
     raw_keys = set()
     for path in raw_files:
         raw = read(path); raw_sha = a.source(path)
+        require(scope_raw[path.resolve()] == raw_sha, 'Quality collection scope raw SHA differs')
         method, scene, stride = raw['method'], raw['scene'], raw['stride']
         raw_key = (method, scene, stride)
         require(raw_key not in raw_keys and method in METHODS and scene in scenes and stride in STRIDES, 'Duplicate/out-of-scope raw')
@@ -255,17 +279,20 @@ def audit(args, state):
         require([c['cameraIndex'] for c in raw['qualityCaptures']] == list(range(len(scenes[scene]['cameras']))), 'Raw capture coverage differs')
         for cap in raw['qualityCaptures']:
             identity = (method, scene, stride, cap['cameraIndex'])
-            require(identity in expected and identity not in entries and cap['img_name'] == cameras[scene, cap['cameraIndex']]['img_name'], 'Raw capture identity differs')
+            require(identity in full_expected and identity not in entries and cap['img_name'] == cameras[scene, cap['cameraIndex']]['img_name'], 'Raw capture identity differs')
             entries[identity] = dict(raw=path.resolve(), raw_sha256=raw_sha,
                                      image=within(run, cap['path']), capture=cap)
-    require(set(entries) == expected and len(entries) == 4536, 'Exact raw render coverage differs')
+    expected = {(method, scene, stride, index) for method, scene, stride in raw_keys
+                for index in range(len(scenes[scene]['cameras']))}
+    require(set(entries) == expected and len(entries) == summary['render_images'] and
+            (partial or expected == full_expected), 'Exact complete-configuration render coverage differs')
     checkpoint = per_view_path.read_bytes()
     require(checkpoint.endswith(b'\n'), 'Quality checkpoint has an unterminated final row; audit never repairs it')
     rows = [json.loads(line) for line in checkpoint.splitlines()]
     lookup = {key(row): row for row in rows}
-    require(len(rows) == len(lookup) == 4536 and set(lookup) == expected, 'JSONL has missing/duplicate/additional views')
+    require(len(rows) == len(lookup) == len(expected) and set(lookup) == expected, 'JSONL has missing/duplicate/additional views')
     captures = read(capture_path)['entries']; capture_lookup = {key(row): row for row in captures}
-    require(len(captures) == len(capture_lookup) == 4536 and set(capture_lookup) == expected, 'Capture manifest coverage differs')
+    require(len(captures) == len(capture_lookup) == len(expected) and set(capture_lookup) == expected, 'Capture manifest coverage differs')
     state['checkedViewCount'] = 0
     for identity, row in lookup.items():
         entry, gt_entry = entries[identity], ground_truth[identity[1], identity[3]]
@@ -308,11 +335,11 @@ def audit(args, state):
             output.write(json.dumps(record, allow_nan=False) + '\n')
             groups[identity[:3]].append(dict(psnr_db=score, ssim=row['ssim'], lpips_vgg=row['lpips_vgg'], infinite=infinite))
             state['checkedViewCount'] = ordinal + 1
-            if (ordinal + 1) % 250 == 0: print(f'Independent PSNR {ordinal + 1}/4536', flush=True)
+            if (ordinal + 1) % 250 == 0: print(f'Independent PSNR {ordinal + 1}/{len(expected)}', flush=True)
     a.source(differences_path)
-    require(len(groups) == 156, 'Independent configuration grouping differs')
+    require(set(groups) == raw_keys, 'Independent configuration grouping differs')
     config_rows = {(r['method'], r['scene'], r['stride']): r for r in summary['configurations']}
-    require(set(config_rows) == set(groups) and len(summary['configurations']) == 156, 'Configuration summary coverage differs')
+    require(set(config_rows) == set(groups) and len(summary['configurations']) == len(groups), 'Configuration summary coverage differs')
     computed = {}
     for identity, group in groups.items():
         supplied = config_rows[identity]
@@ -323,13 +350,25 @@ def audit(args, state):
         for metric, value in computed[identity].items():
             a.compare(supplied[metric], value, TOLERANCES['aggregate_absolute'], 'Configuration ' + str(identity) + ':' + metric)
     aggregates = {(r['method'], r['stride']): r for r in summary['aggregates']}
-    require(set(aggregates) == {(m, k) for m in METHODS for k in STRIDES} and len(summary['aggregates']) == 12, 'Equal-scene summary coverage differs')
+    expected_aggregates = {(method, stride) for method, scene, stride in raw_keys}
+    require(set(aggregates) == expected_aggregates and len(summary['aggregates']) == len(expected_aggregates), 'Equal-scene summary coverage differs')
     for (method, stride), supplied in aggregates.items():
-        require(supplied['scenes'] == 13 and supplied['complete'], 'Aggregate is not complete13-scene coverage')
+        available = [scene for scene in scenes if (method, scene, stride) in computed]
+        require(supplied['scenes'] == len(available) and supplied['complete'] is (len(available) == 13), 'Aggregate available-scene coverage differs')
         for metric in ['psnr_db', 'ssim', 'lpips_vgg']:
-            value = mean([computed[method, scene, stride][metric] for scene in scenes])
+            value = mean([computed[method, scene, stride][metric] for scene in available])
             a.compare(supplied[metric], value, TOLERANCES['aggregate_absolute'], 'Scene-equal aggregate ' + str((method, stride, metric)))
-    numerical_path = run / 'validation/quality-numerical-validation.json'; numerical = read(numerical_path)
+    balanced = []
+    for stride in STRIDES:
+        common = [scene for scene in scenes if all((method, scene, stride) in computed for method in METHODS)]
+        if common:
+            for method in METHODS:
+                balanced.append(dict(method=method, stride=stride, scenes=common, sceneCount=len(common),
+                                     viewsPerMethod=sum(len(scenes[scene]['cameras']) for scene in common),
+                                     **{metric: mean([computed[method, scene, stride][metric] for scene in common])
+                                        for metric in ['psnr_db', 'ssim', 'lpips_vgg']}))
+    numerical_path = args.numerical_validation or run / 'validation/quality-numerical-validation.json'
+    numerical = read(numerical_path)
     a.source(numerical_path)
     require(numerical['complete'] and numerical['device'] == 'cpu' and numerical['checks']['lpips']['passed'] and
             numerical['metrics_script_sha256'] == protocol['script_sha256'], 'Fresh numerical validation is missing/mismatched')
@@ -353,9 +392,9 @@ def audit(args, state):
         a.source(path)
     model = lpips.LPIPS(net='vgg', version='0.1', verbose=False).eval().cpu()
     require(all(p.device.type == 'cpu' for p in model.parameters()), 'CPU reference unexpectedly uses another device')
-    spots, selected = [], [(method, scene, 1, 0) for scene in scenes for method in METHODS]
+    spots, selected = [], [(method, scene, 1, 0) for scene in scenes for method in METHODS if (method, scene, 1) in groups]
     spot_path = args.output.with_name(args.output.stem + '-cpu-spotchecks.json')
-    require(len(selected) == len(set(selected)) == 39, 'Deterministic CPU spot coverage differs')
+    require(0 < len(selected) == len(set(selected)) and (partial or len(selected) == 39), 'Deterministic CPU spot coverage differs')
     state['cpuSpotchecksCompleted'] = 0
     for ordinal, identity in enumerate(selected):
         began = time.monotonic()
@@ -377,33 +416,39 @@ def audit(args, state):
                           lpipsTolerance=lpips_tolerance, lpipsPassed=lpips_passed, seconds=time.monotonic() - began))
         state['cpuSpotchecksCompleted'] = ordinal + 1
         # Preserve every reference result even if a later CPU image fails or is interrupted.
-        save(spot_path, dict(selection='Every13scene x3method, stride1, camera_index0; fixed before observing metric values',
-                             complete=len(spots) == 39, referenceDevice='cpu', tolerances=TOLERANCES, records=spots))
+        save(spot_path, dict(selection='Every observed complete stride1 configuration, camera_index0; fixed independently of metric values',
+                             complete=len(spots) == len(selected), expectedSpotchecks=len(selected),
+                             referenceDevice='cpu', tolerances=TOLERANCES, records=spots))
         del left, right, rendered; gc.collect()
-        print(f'CPU reference {ordinal + 1}/39 {identity[1]} {identity[0]} SSIMdiff={ssim_error:.8g} LPIPSdiff={lpips_error:.8g}', flush=True)
+        print(f'CPU reference {ordinal + 1}/{len(selected)} {identity[1]} {identity[0]} SSIMdiff={ssim_error:.8g} LPIPSdiff={lpips_error:.8g}', flush=True)
     a.source(spot_path); a.source(Path(__file__))
     gt_rgb.cache_clear(); del model; gc.collect()
     a.ensure_sources_stable()
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return dict(**bindings, checkedViewCount=4536, rawConfigurations=156, groundTruthImages=378,
-                checkedConfigurations=156, checkedSceneEqualAggregates=12, cpuSpotchecksCompleted=39,
+    return dict(**bindings, checkedViewCount=len(expected), rawConfigurations=len(groups), groundTruthImages=378,
+                checkedConfigurations=len(groups), checkedSceneEqualAggregates=len(aggregates), cpuSpotchecksCompleted=len(selected),
+                partial=partial, fullMatrixComplete=not partial, requestedSubsetComplete=not a.failures,
+                auditScope='explicit-complete-configuration-subset' if partial else 'complete-formal',
+                coverage=dict(completedConfigurations=len(groups), expectedConfigurations=156,
+                              completedViews=len(expected), expectedViews=4536, observedConfigKeys=sorted(groups)),
+                balancedSceneAggregates=balanced,
                 psnrMaximumAbsoluteErrorDb=max(psnr_errors, default=0.0),
                 ssimMaximumAbsoluteError=max(r['ssimAbsoluteError'] for r in spots),
                 lpipsMaximumAbsoluteError=max(r['lpipsAbsoluteError'] for r in spots),
-                rawDifferenceArtifacts=[dict(path=str(p.relative_to(run)), sha256=a.source(p)) for p in [differences_path, spot_path]],
+                rawDifferenceArtifacts=[dict(path=os.path.relpath(p, run), sha256=a.source(p)) for p in [differences_path, spot_path]],
                 sourceReceipts=list(a.sources.values()), failures=a.failures, passed=not a.failures,
-                complete=not a.failures, tolerances=TOLERANCES,
+                complete=not partial and not a.failures, tolerances=TOLERANCES,
                 toleranceRationale='PSNR integer-SSE/float64 arithmetic should agree to rounding; SSIM allows float32 MPS versus float64 separable reduction; LPIPS allows fixed CPU/MPS float32 kernel reduction differences. Thresholds fixed before formal results.',
-                referenceMethods=dict(psnr='Exact uint64 RGB8 SSE -> float64 normalized MSE -> -10log10; all4536',
-                    ssim='Independent SciPy float64 separable11tap Gaussian sigma1.5, zero padding, RGB/pixel mean;39views',
-                    lpips='Official lpips0.1.4 VGG v0.1 on CPU, eval/inference_mode, normalize=True; same pinned checkpoint/calibration;39views'),
+                referenceMethods=dict(psnr='Exact uint64 RGB8 SSE -> float64 normalized MSE -> -10log10; every observed complete render',
+                    ssim='Independent SciPy float64 separable11tap Gaussian sigma1.5, zero padding, RGB/pixel mean; each present stride1 config camera0',
+                    lpips='Official lpips0.1.4 VGG v0.1 on CPU, eval/inference_mode, normalize=True; same pinned checkpoint/calibration; same deterministic subset'),
                 numericalSelfTestSha256=a.source(numerical_path), metricScriptSha256=protocol['script_sha256'],
                 vggWeightSha256=VGG_SHA, lpipsCalibrationSha256=protocol['lpips_calibration_sha256'],
                 measuredDevice='mps', referenceDevice='cpu', referenceThreads=torch.get_num_threads(),
                 packages={**current_packages, 'scipy': importlib.metadata.version('scipy')},
                 auditHost=dict(system=platform.system(), architecture=platform.machine(), python=platform.python_version()),
                 peakRssMiB=rss / (1024 ** 2 if platform.system() == 'Darwin' else 1024), gpuWorkPerformed=False,
-                limitation='AllPSNR and aggregate values independently checked; SSIM/LPIPS numerical cross-device recomputation samples39 of4536 views. Remaining SSIM/LPIPS values have complete lineage/range/aggregation checks, not full CPU recomputation.')
+                limitation='All observed PSNR and aggregate values independently checked; SSIM/LPIPS CPU recomputation covers camera0 of every present full-model configuration. Remaining observed SSIM/LPIPS values have lineage/range/aggregation checks. A partial run never establishes full156/4536 completion; cross-method comparisons use common scene intersections.')
 
 
 def main():
@@ -414,14 +459,21 @@ def main():
     parser.add_argument('--torch-home', type=Path)
     parser.add_argument('--threads', type=int, default=2)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--metrics-dir', type=Path, help='Explicit quality metric directory, including separately labeled preview output')
+    parser.add_argument('--numerical-validation', type=Path)
+    parser.add_argument('--allow-partial', action='store_true', help='Audit the exact complete-config subset of a deliberately paused formal run')
     args = parser.parse_args()
     args.run_dir = args.run_dir.resolve()
+    args.metrics_dir = args.metrics_dir.resolve() if args.metrics_dir else None
+    args.numerical_validation = args.numerical_validation.resolve() if args.numerical_validation else None
     config = read(resolve(args.config)) if args.config.exists() or resolve(args.config).exists() else {}
     args.gt = resolve(args.gt or config['groundTruthRoot'])
     args.torch_home = resolve(args.torch_home or config['torchHome'])
     require(1 <= args.threads <= 8, 'Use1to8 CPU threads')
     args.output = args.output.resolve() if args.output else args.run_dir / 'validation/independent-quality-qa.json'
-    require(args.output.is_relative_to(args.run_dir / 'validation'), 'Audit outputs belong under RUN/validation')
+    require(args.output.is_relative_to(args.run_dir / 'validation') or
+            (args.allow_partial and args.output.is_relative_to(ROOT / 'results') and args.output.parent.name == 'validation'),
+            'Audit outputs belong under RUN/validation or an explicit partial preview validation directory')
     args.output.parent.mkdir(parents=True, exist_ok=True)
     archive_tag = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     for path in [args.output, args.output.with_name(args.output.stem + '-psnr.jsonl'),

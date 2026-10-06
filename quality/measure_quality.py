@@ -108,6 +108,17 @@ def load_checkpoint(path):
     return rows
 
 
+def validate_collection_cleanup(cleanup, allow_partial):
+    """Partial capture coverage never relaxes owned-process/GPU cleanup."""
+    collection_complete = cleanup.get('complete') is True
+    if (not cleanup.get('finishedAt') or cleanup.get('gpuLockReleased') is not True
+            or any(c.get('alive') for c in cleanup.get('children', []))):
+        raise ValueError('Performance owned-process/GPU cleanup is incomplete')
+    if not collection_complete and not allow_partial:
+        raise ValueError('Performance collection is incomplete; --allow-partial is required for a stopped subset')
+    return collection_complete
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--config', type=pathlib.Path,
@@ -120,7 +131,8 @@ def main():
     ap.add_argument('--output', type=pathlib.Path)
     ap.add_argument('--device', choices=['cpu', 'mps'], default='cpu')
     ap.add_argument('--threads', type=int, default=4)
-    ap.add_argument('--allow-partial', action='store_true')
+    ap.add_argument('--allow-partial', action='store_true',
+                    help='Evaluate a safely stopped subset; never declares full experiment completion')
     args = ap.parse_args()
     args.run_dir = args.run_dir.resolve()
     if args.config:
@@ -138,9 +150,9 @@ def main():
         if lock.exists(): raise ValueError('Performance/GPU collection is still locked; quality must run afterwards')
     collection_protocol_path = args.run_dir / 'protocol.json'
     collection_protocol = json.loads(collection_protocol_path.read_text())
-    cleanup = json.loads((args.run_dir / 'runtime-cleanup.json').read_text())
-    if cleanup.get('complete') is not True or not cleanup.get('finishedAt') or cleanup.get('gpuLockReleased') is not True or any(c.get('alive') for c in cleanup.get('children', [])):
-        raise ValueError('Performance collection/cleanup is incomplete')
+    cleanup_path = args.run_dir / 'runtime-cleanup.json'
+    cleanup = json.loads(cleanup_path.read_text())
+    collection_complete = validate_collection_cleanup(cleanup, args.allow_partial)
     for method in ('spark',):
         if collection_protocol['methodDefinitions'][method]['version'] != '0.1.10':
             raise ValueError('This reproduction requires newly measured Spark 0.1.10')
@@ -196,10 +208,11 @@ def main():
     expected = {(m, s, stride, i) for m in ['visionary', 'spark', 'supersplat']
                 for s, i in expected_cameras for stride in [1, 2, 4, 8]}
     if not set(observed) <= expected: raise ValueError('Render identities outside the frozen full matrix')
-    complete = set(observed) == expected
-    if not complete and not args.allow_partial: raise ValueError(f'Expected 4536 render images, got {len(observed)}; use --allow-partial only for pilot')
-    if collection_protocol.get('pilot') and complete:
+    capture_matrix_complete = set(observed) == expected
+    if not capture_matrix_complete and not args.allow_partial: raise ValueError(f'Expected 4536 render images, got {len(observed)}; use --allow-partial for a safely stopped subset')
+    if collection_protocol.get('pilot') and capture_matrix_complete:
         raise ValueError('A pilot protocol cannot establish formal completion')
+    complete = capture_matrix_complete and collection_complete and not args.allow_partial
     # Validate coverage before importing torch or allocating the inference model.
     os.environ['TORCH_HOME'] = str(args.torch_home.resolve())
     import numpy as np
@@ -228,6 +241,7 @@ def main():
                     ssim='11x11 Gaussian sigma1.5, C1=.01^2,C2=.03^2, zero-pad5, average all pixels and RGB',
                     lpips='official lpips v0.1 VGG ImageNet trunk + learned calibration, eval mode, normalize=True from [0,1]',
                     aggregation='arithmetic per-view means per scene/stride/method; equal-weight scene means for aggregate',
+                    completion_policy='Full completion requires the full4536 capture matrix and complete collection without --allow-partial; partial mode still requires owned-process/GPU cleanup. Dynamic capture scope is recorded separately, preserving hash-validated checkpoint reuse as the same collection grows.',
                     caveat='fixed 1280x720 independently resized source RGB; no claim of original paper metric equivalence')
     args.output.mkdir(parents=True, exist_ok=True)
     protocol_path = args.output / 'metrics-protocol.json'
@@ -297,7 +311,21 @@ def main():
     capture_manifest = args.output / 'capture-manifest.json'
     save(capture_manifest, dict(entries=[{k: row[k] for k in ['method', 'scene', 'stride', 'camera_index',
         'img_name', 'path', 'render_sha256', 'render_rgb8_sha256']} for row in records.values()]))
+    requested_subset_complete = all(row['complete'] for row in rows)
+    scope_path = args.output / 'collection-scope.json'
+    save(scope_path, dict(schema='portable-quality-collection-scope-v1',
+         allow_partial=args.allow_partial, collection_complete=collection_complete,
+         full_capture_matrix_complete=capture_matrix_complete,
+         requested_subset_complete=requested_subset_complete,
+         configurations=len(rows), render_images=len(records),
+         expected_configurations=156, expected_render_images=4536,
+         cleanup_sha256=sha(cleanup_path), collection_protocol_sha256=sha(collection_protocol_path),
+         sources=[dict(raw_path=p, raw_sha256=h) for p, h in sorted({
+             (entry['raw_path'], entry['raw_sha256']) for entry in entries})]))
     save(args.output / 'quality-summary.json', dict(complete=complete, generated_at=stamp(),
+         requestedSubsetComplete=requested_subset_complete, partial_mode=args.allow_partial,
+         collection_complete=collection_complete, fullCaptureMatrixComplete=capture_matrix_complete,
+         collection_scope_sha256=sha(scope_path),
          metrics=['psnr', 'ssim', 'lpips'], referenceType='ground-truth',
          render_images=len(records), expected_render_images=4536, configurations=rows, aggregates=aggregates,
          protocol_sha256=sha(protocol_path), per_view_sha256=sha(checkpoint),
