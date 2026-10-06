@@ -1,0 +1,3 @@
+var skyboxVS = "\nattribute vec3 aPosition;\n#ifndef VIEWMATRIX\n#define VIEWMATRIX\nuniform mat4 matrix_view;\n#endif\nuniform mat4 matrix_projectionSkybox;\nuniform mat3 cubeMapRotationMatrix;\nvarying vec3 vViewDir;\n#ifdef SKYMESH\n	uniform mat4 matrix_model;\n	varying vec3 vWorldPos;\n#endif\nvoid main(void) {\n	mat4 view = matrix_view;\n	#ifdef SKYMESH\n		vec4 worldPos = matrix_model * vec4(aPosition, 1.0);\n		vWorldPos = worldPos.xyz;\n		gl_Position = matrix_projectionSkybox * view * worldPos;\n	#else\n		view[3][0] = view[3][1] = view[3][2] = 0.0;\n		gl_Position = matrix_projectionSkybox * view * vec4(aPosition, 1.0);\n		vViewDir = aPosition * cubeMapRotationMatrix;\n	#endif\n	gl_Position.z = gl_Position.w - 1.0e-7;\n}\n";
+
+export { skyboxVS as default };

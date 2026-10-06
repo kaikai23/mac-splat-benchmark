@@ -1,0 +1,3 @@
+var fogPS = "\nfloat dBlendModeFogFactor = 1.0;\n#if (FOG != NONE)\n	uniform vec3 fog_color;\n	#if (FOG == LINEAR)\n		uniform float fog_start;\n		uniform float fog_end;\n	#else\n		uniform float fog_density;\n	#endif\n#endif\nfloat getFogFactor() {\n	float depth = gl_FragCoord.z / gl_FragCoord.w;\n	float fogFactor = 0.0;\n	#if (FOG == LINEAR)\n		fogFactor = (fog_end - depth) / (fog_end - fog_start);\n	#elif (FOG == EXP)\n		fogFactor = exp(-depth * fog_density);\n	#elif (FOG == EXP2)\n		fogFactor = exp(-depth * depth * fog_density * fog_density);\n	#endif\n	return clamp(fogFactor, 0.0, 1.0);\n}\nvec3 addFog(vec3 color) {\n	#if (FOG != NONE)\n		return mix(fog_color * dBlendModeFogFactor, color, getFogFactor());\n	#endif\n	return color;\n}\n";
+
+export { fogPS as default };

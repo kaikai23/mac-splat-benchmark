@@ -1,0 +1,17 @@
+{
+  "name": "mac-gaussian-three-method-repro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portable Apple Silicon benchmark: Visionary, native Spark.js 0.1.10 and SuperSplat",
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "scripts": {
+    "validate": "node run-experiment.cjs --config config/local.json --mode validate",
+    "pilot": "node run-experiment.cjs --config config/local.json --mode pilot",
+    "full": "node run-experiment.cjs --config config/local.json --mode full"
+  },
+  "dependencies": {
+    "playwright": "1.62.1"
+  }
+}

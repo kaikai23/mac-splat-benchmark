@@ -1,0 +1,821 @@
+[
+  {
+    "path": "bicycle/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 0
+  },
+  {
+    "path": "bicycle/cameras.json",
+    "size": 77427,
+    "compressed_size": 25147,
+    "crc32": "fd1d74d3",
+    "header_offset": 38
+  },
+  {
+    "path": "bicycle/cfg_args",
+    "size": 169,
+    "compressed_size": 137,
+    "crc32": "ae8c42ba",
+    "header_offset": 25235
+  },
+  {
+    "path": "bicycle/input.ply",
+    "size": 2768290,
+    "compressed_size": 1445398,
+    "crc32": "a1a240aa",
+    "header_offset": 25418
+  },
+  {
+    "path": "bicycle/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 1470863
+  },
+  {
+    "path": "bicycle/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 1470913
+  },
+  {
+    "path": "bicycle/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 1520726124,
+    "compressed_size": 1353363151,
+    "crc32": "ebf2474a",
+    "header_offset": 1470979
+  },
+  {
+    "path": "bicycle/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 1354834211
+  },
+  {
+    "path": "bicycle/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 896795076,
+    "compressed_size": 788231303,
+    "crc32": "72a67a0e",
+    "header_offset": 1354834276
+  },
+  {
+    "path": "bonsai/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 2143065659
+  },
+  {
+    "path": "bonsai/cameras.json",
+    "size": 116695,
+    "compressed_size": 37076,
+    "crc32": "f963b75c",
+    "header_offset": 2143065696
+  },
+  {
+    "path": "bonsai/cfg_args",
+    "size": 167,
+    "compressed_size": 136,
+    "crc32": "72f4cedf",
+    "header_offset": 2143102821
+  },
+  {
+    "path": "bonsai/input.ply",
+    "size": 5578785,
+    "compressed_size": 2979168,
+    "crc32": "bbbe63d6",
+    "header_offset": 2143103002
+  },
+  {
+    "path": "bonsai/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 2146082216
+  },
+  {
+    "path": "bonsai/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 2146082265
+  },
+  {
+    "path": "bonsai/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 308716644,
+    "compressed_size": 260603022,
+    "crc32": "3088ffa4",
+    "header_offset": 2146082330
+  },
+  {
+    "path": "bonsai/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 2406685432
+  },
+  {
+    "path": "bonsai/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 286972500,
+    "compressed_size": 235568440,
+    "crc32": "5892e442",
+    "header_offset": 2406685496
+  },
+  {
+    "path": "counter/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 2642254015
+  },
+  {
+    "path": "counter/cameras.json",
+    "size": 95501,
+    "compressed_size": 30633,
+    "crc32": "a3f7feee",
+    "header_offset": 2642254053
+  },
+  {
+    "path": "counter/cfg_args",
+    "size": 169,
+    "compressed_size": 135,
+    "crc32": "271a40f7",
+    "header_offset": 2642284736
+  },
+  {
+    "path": "counter/input.ply",
+    "size": 4205943,
+    "compressed_size": 2259094,
+    "crc32": "dd181616",
+    "header_offset": 2642284917
+  },
+  {
+    "path": "counter/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 2644544058
+  },
+  {
+    "path": "counter/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 2644544108
+  },
+  {
+    "path": "counter/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 303294620,
+    "compressed_size": 261431049,
+    "crc32": "f324e3ad",
+    "header_offset": 2644544174
+  },
+  {
+    "path": "counter/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 2905975304
+  },
+  {
+    "path": "counter/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 255294220,
+    "compressed_size": 217208680,
+    "crc32": "3cb54d5c",
+    "header_offset": 2905975369
+  },
+  {
+    "path": "drjohnson/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 3123184129
+  },
+  {
+    "path": "drjohnson/cameras.json",
+    "size": 105635,
+    "compressed_size": 33890,
+    "crc32": "bcf444d6",
+    "header_offset": 3123184169
+  },
+  {
+    "path": "drjohnson/cfg_args",
+    "size": 167,
+    "compressed_size": 131,
+    "crc32": "a9d24034",
+    "header_offset": 3123218111
+  },
+  {
+    "path": "drjohnson/input.ply",
+    "size": 2183480,
+    "compressed_size": 1189671,
+    "crc32": "581279ee",
+    "header_offset": 3123218290
+  },
+  {
+    "path": "drjohnson/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 3124408010
+  },
+  {
+    "path": "drjohnson/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 3124408062
+  },
+  {
+    "path": "drjohnson/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 844479476,
+    "compressed_size": 735160560,
+    "crc32": "66dd518a",
+    "header_offset": 3124408130
+  },
+  {
+    "path": "drjohnson/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 3859568773
+  },
+  {
+    "path": "drjohnson/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 471760276,
+    "compressed_size": 402536070,
+    "crc32": "9c63bb3d",
+    "header_offset": 3859568840
+  },
+  {
+    "path": "flowers/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 4262104992
+  },
+  {
+    "path": "flowers/cameras.json",
+    "size": 69212,
+    "compressed_size": 22533,
+    "crc32": "a1754f07",
+    "header_offset": 4262105030
+  },
+  {
+    "path": "flowers/cfg_args",
+    "size": 169,
+    "compressed_size": 137,
+    "crc32": "f05f10c7",
+    "header_offset": 4262127613
+  },
+  {
+    "path": "flowers/input.ply",
+    "size": 1955962,
+    "compressed_size": 1017132,
+    "crc32": "836a42c5",
+    "header_offset": 4262127796
+  },
+  {
+    "path": "flowers/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 4263144975
+  },
+  {
+    "path": "flowers/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 4263145025
+  },
+  {
+    "path": "flowers/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 901840636,
+    "compressed_size": 810228197,
+    "crc32": "5aaeb803",
+    "header_offset": 4263145091
+  },
+  {
+    "path": "flowers/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 5073373369
+  },
+  {
+    "path": "flowers/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 610467172,
+    "compressed_size": 545513746,
+    "crc32": "18f48998",
+    "header_offset": 5073373434
+  },
+  {
+    "path": "garden/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 5618887260
+  },
+  {
+    "path": "garden/cameras.json",
+    "size": 73600,
+    "compressed_size": 23981,
+    "crc32": "0389df27",
+    "header_offset": 5618887297
+  },
+  {
+    "path": "garden/cfg_args",
+    "size": 167,
+    "compressed_size": 136,
+    "crc32": "e2bdd51b",
+    "header_offset": 5618911327
+  },
+  {
+    "path": "garden/input.ply",
+    "size": 3746916,
+    "compressed_size": 2045232,
+    "crc32": "26d86dc7",
+    "header_offset": 5618911508
+  },
+  {
+    "path": "garden/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 5620956786
+  },
+  {
+    "path": "garden/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 5620956835
+  },
+  {
+    "path": "garden/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 1447027964,
+    "compressed_size": 1290779747,
+    "crc32": "2d0a09ee",
+    "header_offset": 5620956900
+  },
+  {
+    "path": "garden/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 6911736727
+  },
+  {
+    "path": "garden/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 1087764748,
+    "compressed_size": 963573984,
+    "crc32": "52db1713",
+    "header_offset": 6911736791
+  },
+  {
+    "path": "kitchen/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 7875310854
+  },
+  {
+    "path": "kitchen/cameras.json",
+    "size": 111500,
+    "compressed_size": 35453,
+    "crc32": "18babec2",
+    "header_offset": 7875310892
+  },
+  {
+    "path": "kitchen/cfg_args",
+    "size": 169,
+    "compressed_size": 137,
+    "crc32": "fc9fc092",
+    "header_offset": 7875346395
+  },
+  {
+    "path": "kitchen/input.ply",
+    "size": 6517143,
+    "compressed_size": 3430830,
+    "crc32": "6b734a36",
+    "header_offset": 7875346578
+  },
+  {
+    "path": "kitchen/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 7878777455
+  },
+  {
+    "path": "kitchen/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 7878777505
+  },
+  {
+    "path": "kitchen/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 459380612,
+    "compressed_size": 406623576,
+    "crc32": "84ed81c5",
+    "header_offset": 7878777571
+  },
+  {
+    "path": "kitchen/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 8285401228
+  },
+  {
+    "path": "kitchen/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 417794236,
+    "compressed_size": 369010240,
+    "crc32": "d0611c02",
+    "header_offset": 8285401293
+  },
+  {
+    "path": "playroom/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 8654411613
+  },
+  {
+    "path": "playroom/cameras.json",
+    "size": 89710,
+    "compressed_size": 29048,
+    "crc32": "e0e302d1",
+    "header_offset": 8654411652
+  },
+  {
+    "path": "playroom/cfg_args",
+    "size": 165,
+    "compressed_size": 131,
+    "crc32": "0219f3f9",
+    "header_offset": 8654440751
+  },
+  {
+    "path": "playroom/input.ply",
+    "size": 999368,
+    "compressed_size": 547361,
+    "crc32": "2f881b8d",
+    "header_offset": 8654440929
+  },
+  {
+    "path": "playroom/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 8654988338
+  },
+  {
+    "path": "playroom/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 8654988389
+  },
+  {
+    "path": "playroom/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 631438300,
+    "compressed_size": 523887782,
+    "crc32": "f8b2c7e2",
+    "header_offset": 8654988456
+  },
+  {
+    "path": "playroom/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 9178876320
+  },
+  {
+    "path": "playroom/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 430184068,
+    "compressed_size": 350902708,
+    "crc32": "b5cc7d6e",
+    "header_offset": 9178876386
+  },
+  {
+    "path": "room/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 9529779175
+  },
+  {
+    "path": "room/cameras.json",
+    "size": 124668,
+    "compressed_size": 39535,
+    "crc32": "57dae086",
+    "header_offset": 9529779210
+  },
+  {
+    "path": "room/cfg_args",
+    "size": 163,
+    "compressed_size": 134,
+    "crc32": "c6b59cd5",
+    "header_offset": 9529818792
+  },
+  {
+    "path": "room/input.ply",
+    "size": 3041163,
+    "compressed_size": 1647781,
+    "crc32": "d944f0bb",
+    "header_offset": 9529818969
+  },
+  {
+    "path": "room/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 9531466794
+  },
+  {
+    "path": "room/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 9531466841
+  },
+  {
+    "path": "room/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 395158780,
+    "compressed_size": 329909932,
+    "crc32": "1a63439c",
+    "header_offset": 9531466904
+  },
+  {
+    "path": "room/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 9861376914
+  },
+  {
+    "path": "room/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 280272532,
+    "compressed_size": 229229636,
+    "crc32": "7d0fa960",
+    "header_offset": 9861376976
+  },
+  {
+    "path": "stump/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 10090606689
+  },
+  {
+    "path": "stump/cameras.json",
+    "size": 49776,
+    "compressed_size": 16302,
+    "crc32": "5130c0ad",
+    "header_offset": 10090606725
+  },
+  {
+    "path": "stump/cfg_args",
+    "size": 165,
+    "compressed_size": 135,
+    "crc32": "425cc7a4",
+    "header_offset": 10090623075
+  },
+  {
+    "path": "stump/input.ply",
+    "size": 1634764,
+    "compressed_size": 843405,
+    "crc32": "15166b5f",
+    "header_offset": 10090623254
+  },
+  {
+    "path": "stump/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 10091466704
+  },
+  {
+    "path": "stump/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 10091466752
+  },
+  {
+    "path": "stump/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 1230527188,
+    "compressed_size": 1109420591,
+    "crc32": "7a844976",
+    "header_offset": 10091466816
+  },
+  {
+    "path": "stump/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 11200887486
+  },
+  {
+    "path": "stump/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 944270460,
+    "compressed_size": 849135568,
+    "crc32": "bb5adc4d",
+    "header_offset": 11200887549
+  },
+  {
+    "path": "train/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 12050023195
+  },
+  {
+    "path": "train/cameras.json",
+    "size": 120800,
+    "compressed_size": 38454,
+    "crc32": "9940f310",
+    "header_offset": 12050023231
+  },
+  {
+    "path": "train/cfg_args",
+    "size": 162,
+    "compressed_size": 130,
+    "crc32": "cbf086a8",
+    "header_offset": 12050061733
+  },
+  {
+    "path": "train/input.ply",
+    "size": 4932756,
+    "compressed_size": 2757120,
+    "crc32": "b28b5f37",
+    "header_offset": 12050061907
+  },
+  {
+    "path": "train/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 12052819072
+  },
+  {
+    "path": "train/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 12052819120
+  },
+  {
+    "path": "train/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 254575516,
+    "compressed_size": 219441845,
+    "crc32": "85d6d4ca",
+    "header_offset": 12052819184
+  },
+  {
+    "path": "train/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 12272261108
+  },
+  {
+    "path": "train/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 138698755,
+    "compressed_size": 116242519,
+    "crc32": "cb6ed59c",
+    "header_offset": 12272261171
+  },
+  {
+    "path": "treehill/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 12388503768
+  },
+  {
+    "path": "treehill/cameras.json",
+    "size": 56201,
+    "compressed_size": 18444,
+    "crc32": "fc3331eb",
+    "header_offset": 12388503807
+  },
+  {
+    "path": "treehill/cfg_args",
+    "size": 171,
+    "compressed_size": 137,
+    "crc32": "1e467944",
+    "header_offset": 12388522302
+  },
+  {
+    "path": "treehill/input.ply",
+    "size": 2670778,
+    "compressed_size": 1382981,
+    "crc32": "ac2da930",
+    "header_offset": 12388522486
+  },
+  {
+    "path": "treehill/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 12389905515
+  },
+  {
+    "path": "treehill/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 12389905566
+  },
+  {
+    "path": "treehill/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 938374260,
+    "compressed_size": 829119730,
+    "crc32": "a9916ad2",
+    "header_offset": 12389905633
+  },
+  {
+    "path": "treehill/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 13219025445
+  },
+  {
+    "path": "treehill/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 595164084,
+    "compressed_size": 520327422,
+    "crc32": "20ca4420",
+    "header_offset": 13219025511
+  },
+  {
+    "path": "truck/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 13739353014
+  },
+  {
+    "path": "truck/cameras.json",
+    "size": 100406,
+    "compressed_size": 32225,
+    "crc32": "820f7d65",
+    "header_offset": 13739353050
+  },
+  {
+    "path": "truck/cfg_args",
+    "size": 162,
+    "compressed_size": 130,
+    "crc32": "6c485142",
+    "header_offset": 13739385323
+  },
+  {
+    "path": "truck/input.ply",
+    "size": 3673017,
+    "compressed_size": 2060867,
+    "crc32": "a5788c43",
+    "header_offset": 13739385497
+  },
+  {
+    "path": "truck/point_cloud/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 13741446409
+  },
+  {
+    "path": "truck/point_cloud/iteration_30000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 13741446457
+  },
+  {
+    "path": "truck/point_cloud/iteration_30000/point_cloud.ply",
+    "size": 630225580,
+    "compressed_size": 550481900,
+    "crc32": "44027887",
+    "header_offset": 13741446521
+  },
+  {
+    "path": "truck/point_cloud/iteration_7000/",
+    "size": 0,
+    "compressed_size": 0,
+    "crc32": "00000000",
+    "header_offset": 14291928500
+  },
+  {
+    "path": "truck/point_cloud/iteration_7000/point_cloud.ply",
+    "size": 429631276,
+    "compressed_size": 368688552,
+    "crc32": "0e8f7f4f",
+    "header_offset": 14291928563
+  }
+]

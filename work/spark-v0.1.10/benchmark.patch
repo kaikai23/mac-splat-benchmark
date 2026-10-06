@@ -1,0 +1,103 @@
+diff --git a/source-before/worker-sort-region.js b/source-after/worker-sort-region.js
+index eb48403..93c225a 100644
+--- a/source-before/worker-sort-region.js
++++ b/source-after/worker-sort-region.js
+@@ -1,11 +1,15 @@
+ case "sortDoubleSplats": {
+           const { numSplats, readback, ordering } = args;
+           {
+-            result = {
++            const benchmarkSortStarted = performance.now();
++      const benchmarkActiveSplats = sort_splats(numSplats, readback, ordering);
++      const benchmarkSortMs = performance.now() - benchmarkSortStarted;
++      result = {
+               id,
+               readback,
+               ordering,
+-              activeSplats: sort_splats(numSplats, readback, ordering)
++              activeSplats: benchmarkActiveSplats,
++        benchmarkSortMs
+             };
+           }
+           break;
+@@ -13,11 +17,15 @@ case "sortDoubleSplats": {
+         case "sort32Splats": {
+           const { numSplats, readback, ordering } = args;
+           {
+-            result = {
++            const benchmarkSortStarted = performance.now();
++      const benchmarkActiveSplats = sort32_splats(numSplats, readback, ordering);
++      const benchmarkSortMs = performance.now() - benchmarkSortStarted;
++      result = {
+               id,
+               readback,
+               ordering,
+-              activeSplats: sort32_splats(numSplats, readback, ordering)
++              activeSplats: benchmarkActiveSplats,
++        benchmarkSortMs
+             };
+           }
+           break;
+diff --git a/source-before/viewpoint-sort-update.js b/source-after/viewpoint-sort-update.js
+index d4d4f84..92c99af 100644
+--- a/source-before/viewpoint-sort-update.js
++++ b/source-after/viewpoint-sort-update.js
+@@ -7,6 +7,8 @@
+       throw new Error("Only one sort at a time");
+     }
+     this.sortingCheck = true;
++    const benchmarkStarted = performance.now();
++    let benchmarkTiming = null;
+     accumulator = accumulator ?? this.spark.active;
+     const { numSplats, maxSplats } = accumulator.splats;
+     let activeSplats = 0;
+@@ -48,12 +50,15 @@
+       dynoSplats.packedSplats = accumulator.splats;
+       const sortReader = sort32 ? sort32Reader : doubleSortReader;
+       const count = sort32 ? numSplats : Math.ceil(numSplats / 2);
++      const benchmarkReadbackStarted = performance.now();
+       await reader.renderReadback({
+         renderer: this.spark.renderer,
+         reader: sortReader,
+         count,
+         readback
+       });
++      const benchmarkReadbackMs = performance.now() - benchmarkReadbackStarted;
++      const benchmarkRpcStarted = performance.now();
+       const result = await withWorker(async (worker) => {
+         const rpcName = sort32 ? "sort32Splats" : "sortDoubleSplats";
+         return worker.call(rpcName, {
+@@ -63,6 +68,8 @@
+           ordering
+         });
+       });
++      const benchmarkRpcMs = performance.now() - benchmarkRpcStarted;
++      benchmarkTiming = {cpuSortMs: result.benchmarkSortMs, metricReadbackWallMs: benchmarkReadbackMs, workerRoundtripMs: benchmarkRpcMs, sortBits: sort32 ? 32 : 16};
+       if (sort32) {
+         this.readback32 = result.readback;
+       } else {
+@@ -71,6 +78,7 @@
+       ordering = result.ordering;
+       activeSplats = result.activeSplats;
+     }
++    const benchmarkUploadStarted = performance.now();
+     this.updateDisplay({
+       accumulator,
+       viewToWorld,
+@@ -78,5 +86,16 @@
+       activeSplats,
+       displayed
+     });
++    this.benchmarkLastSort = {
++      ...benchmarkTiming,
++      orderingUploadWallMs: performance.now() - benchmarkUploadStarted,
++      sortUpdateWallMs: performance.now() - benchmarkStarted,
++      numSplats, sortedSplats: activeSplats,
++      sequence: (this.benchmarkLastSort?.sequence ?? 0) + 1,
++      completedAt: performance.now(),
++      sortedViewOrigin: new THREE.Vector3().setFromMatrixPosition(viewToWorld).toArray(),
++      sortedViewDirection: new THREE.Vector3(0, 0, -1).transformDirection(viewToWorld).toArray(),
++      mappingVersion: accumulator.mappingVersion,
++    };
+     this.sortingCheck = false;
+   }

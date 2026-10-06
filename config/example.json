@@ -1,0 +1,11 @@
+{
+  "dataRoot": "../model-data",
+  "cameraRoot": "config/cameras",
+  "groundTruthRoot": "../ground-truth",
+  "chromeExecutable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "outputRoot": "results",
+  "pilotOutput": "results/pilot",
+  "pythonExecutable": ".venv/bin/python",
+  "torchHome": ".cache/torch",
+  "dataVerificationReceipt": "results/setup/data-verification.json"
+}

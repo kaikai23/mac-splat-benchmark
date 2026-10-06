@@ -1,0 +1,32 @@
+{
+  "schema": "spark-0.1.10-native-timing-v1",
+  "repository": "https://github.com/sparkjsdev/spark",
+  "tag": "v0.1.10",
+  "version": "0.1.10",
+  "commit": "792d6d193db8b79ed4d1f32ef65cca9ec93f0896",
+  "modificationId": "spark-0.1.10-timers-v1",
+  "upstreamBundleSha256": "e2841904c3facdf2ab5177b13b4827cdc72118cb8b613673ca08d8e983c5bf9d",
+  "instrumentedBundleSha256": "67272780a4e90a4bf1ac59662613aa952b44234aafed660d7c244f36d8d84a24",
+  "upstreamWorkerSha256": "ab59eebfd5775f5b59f46bcd401c4274892a0d67286d404966a7cf662e552733",
+  "instrumentedWorkerSha256": "1b0ddd9fce149e2dfed9dd01af119e2f7df6d4f01eeee5043a8628ba9297164c",
+  "embeddedWasmSha256": [
+    "4f8fd1684bd0587228be6d9aa5e9d2b6ce2d2d2c06d6bac778f4d75a48f5bb98",
+    "4f8fd1684bd0587228be6d9aa5e9d2b6ce2d2d2c06d6bac778f4d75a48f5bb98"
+  ],
+  "embeddedWasmUnchanged": true,
+  "sourcePatch": "benchmark.patch",
+  "sourcePatchSha256": "ad41ffffeed292e263a9890907d245cf014be8572385a8f0a81ef452779cada9",
+  "buildScriptSha256": "113a48a422e24cec4949e39c0d3575461880adce835067d5f96aac6cd0472e69",
+  "inverseSourceEditsVerified": true,
+  "originalSourceModified": false,
+  "metadataLocation": "SparkRenderer.defaultView.benchmarkLastSort",
+  "nativeSortPaths": {
+    "sort32_true": "SparkViewpoint -> sort32Splats Worker RPC -> official sort32_splats WASM",
+    "sort32_false": "SparkViewpoint -> sortDoubleSplats Worker RPC -> official sort_splats WASM"
+  },
+  "defaultCaveat": "The source API comment says default true, but runtime fallback is this.sort32 ?? false. The selected experiment must record its actual option and resulting native path.",
+  "cpuSortTimer": "performance.now around original WASM sort call including native JS/WASM copying; excludes GPU depth-key pass/readback and Worker RPC",
+  "metricReadbackWallTimer": "Wall time of original separate GPU depth-key pass plus async readback; not a separate CPU sort cost",
+  "orderingUploadWallTimer": "CPU wall for updateDisplay ordering InstancedBufferAttribute update; actual upload is submitted in the subsequent renderer.render draw scope; no separate GPU upload execution-time claim",
+  "changes": "Timing and diagnostic fields only; official JS renderer, source files and embedded WASM remain unchanged except separately generated benchmark bundle."
+}

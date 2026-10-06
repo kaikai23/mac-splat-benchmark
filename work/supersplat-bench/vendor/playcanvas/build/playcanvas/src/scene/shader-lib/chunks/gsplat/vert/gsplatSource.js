@@ -1,0 +1,3 @@
+var gsplatSourceVS = "\nattribute vec3 vertex_position;\nattribute uint vertex_id_attrib;\nuniform uint numSplats;\nuniform highp usampler2D splatOrder;\nbool initSource(out SplatSource source) {\n	uint w = uint(textureSize(splatOrder, 0).x);\n	source.order = vertex_id_attrib + uint(vertex_position.z);\n	if (source.order >= numSplats) {\n		return false;\n	}\n	ivec2 orderUV = ivec2(source.order % w, source.order / w);\n	source.id = texelFetch(splatOrder, orderUV, 0).r;\n	source.uv = ivec2(source.id % w, source.id / w);\n	source.cornerUV = vertex_position.xy;\n	return true;\n}\n";
+
+export { gsplatSourceVS as default };

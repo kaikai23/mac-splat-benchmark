@@ -1,0 +1,3 @@
+var gsplatPS = '\n#ifndef DITHER_NONE\n	#include "bayerPS"\n	#include "opacityDitherPS"\n	varying float id;\n#endif\n#ifdef PICK_PASS\n	uniform vec4 uColor;\n#endif\nvarying mediump vec2 gaussianUV;\nvarying mediump vec4 gaussianColor;\nvoid main(void) {\n	mediump float A = dot(gaussianUV, gaussianUV);\n	if (A > 1.0) {\n		discard;\n	}\n	mediump float alpha = exp(-A * 4.0) * gaussianColor.a;\n	#ifdef PICK_PASS\n		if (alpha < 0.3) {\n			discard;\n		}\n		gl_FragColor = uColor;\n	#else\n		if (alpha < 1.0 / 255.0) {\n			discard;\n		}\n		#ifndef DITHER_NONE\n			opacityDither(alpha, id * 0.013);\n		#endif\n		gl_FragColor = vec4(gaussianColor.xyz * alpha, alpha);\n	#endif\n}\n';
+
+export { gsplatPS as default };

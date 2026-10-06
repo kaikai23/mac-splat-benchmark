@@ -1,0 +1,3 @@
+var bayerPS = "\nfloat bayer2(vec2 p) {\n	return mod(2.0 * p.y + p.x + 1.0, 4.0);\n}\nfloat bayer4(vec2 p) {\n	vec2 p1 = mod(p, 2.0);\n	vec2 p2 = floor(0.5 * mod(p, 4.0));\n	return 4.0 * bayer2(p1) + bayer2(p2);\n}\nfloat bayer8(vec2 p) {\n	vec2 p1 = mod(p, 2.0);\n	vec2 p2 = floor(0.5 * mod(p, 4.0));\n	vec2 p4 = floor(0.25 * mod(p, 8.0));\n	return 4.0 * (4.0 * bayer2(p1) + bayer2(p2)) + bayer2(p4);\n}\n";
+
+export { bayerPS as default };

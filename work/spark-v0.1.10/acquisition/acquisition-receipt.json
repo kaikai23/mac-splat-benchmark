@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/sparkjsdev/spark",
+  "tag": "v0.1.10",
+  "commit": "792d6d193db8b79ed4d1f32ef65cca9ec93f0896",
+  "npm_version": "0.1.10",
+  "archive_url": "https://codeload.github.com/sparkjsdev/spark/tar.gz/792d6d193db8b79ed4d1f32ef65cca9ec93f0896",
+  "archive_sha256": "08916cba93b94acd0c4ea857d986f9c07e6b7c7cbf203b73295adefb11e03dc7",
+  "archive_bytes": 2728967,
+  "all_git_blob_hashes_verified": true,
+  "file_count": 225,
+  "npm_bundle_matches_git_bundle": true,
+  "bundle_sha256": "e2841904c3facdf2ab5177b13b4827cdc72118cb8b613673ca08d8e983c5bf9d",
+  "network_node": "ecofde"
+}

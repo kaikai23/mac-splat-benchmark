@@ -1,0 +1,51 @@
+import { Http, http } from '../../platform/net/http.js';
+import { AnimCurve } from '../anim/evaluator/anim-curve.js';
+import { AnimData } from '../anim/evaluator/anim-data.js';
+import { AnimTrack } from '../anim/evaluator/anim-track.js';
+import { ResourceHandler } from './handler.js';
+
+class AnimClipHandler extends ResourceHandler {
+		load(url, callback) {
+				if (typeof url === 'string') {
+						url = {
+								load: url,
+								original: url
+						};
+				}
+				var options = {
+						retry: this.maxRetries > 0,
+						maxRetries: this.maxRetries
+				};
+				if (url.load.startsWith('blob:')) {
+						options.responseType = Http.ResponseType.JSON;
+				}
+				http.get(url.load, options, (err, response)=>{
+						if (err) {
+								callback("Error loading animation clip resource: " + url.original + " [" + err + "]");
+						} else {
+								callback(null, response);
+						}
+				});
+		}
+		open(url, data) {
+				var name = data.name;
+				var duration = data.duration;
+				var inputs = data.inputs.map((input)=>{
+						return new AnimData(1, input);
+				});
+				var outputs = data.outputs.map((output)=>{
+						return new AnimData(output.components, output.data);
+				});
+				var curves = data.curves.map((curve)=>{
+						return new AnimCurve([
+								curve.path
+						], curve.inputIndex, curve.outputIndex, curve.interpolation);
+				});
+				return new AnimTrack(name, duration, inputs, outputs, curves);
+		}
+		constructor(app){
+				super(app, 'animclip');
+		}
+}
+
+export { AnimClipHandler };

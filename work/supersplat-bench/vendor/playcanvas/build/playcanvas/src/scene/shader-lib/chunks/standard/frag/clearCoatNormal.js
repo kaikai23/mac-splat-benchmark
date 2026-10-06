@@ -1,0 +1,3 @@
+var clearCoatNormalPS = "\n#ifdef MAPTEXTURE\nuniform float material_clearCoatBumpiness;\n#endif\nvoid getClearCoatNormal() {\n#ifdef MAPTEXTURE\n	vec3 normalMap = unpackNormal(texture2DBias($SAMPLER, $UV, textureBias));\n	normalMap = mix(vec3(0.0, 0.0, 1.0), normalMap, material_clearCoatBumpiness);\n	ccNormalW = normalize(dTBN * normalMap);\n#else\n	ccNormalW = dVertexNormalW;\n#endif\n}\n";
+
+export { clearCoatNormalPS as default };

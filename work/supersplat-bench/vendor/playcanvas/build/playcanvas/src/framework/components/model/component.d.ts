@@ -1,0 +1,495 @@
+/**
+ * @import { BoundingBox } from '../../../core/shape/bounding-box.js'
+ * @import { Entity } from '../../entity.js'
+ * @import { EventHandle } from '../../../core/event-handle.js'
+ * @import { LayerComposition } from '../../../scene/composition/layer-composition.js'
+ * @import { Layer } from '../../../scene/layer.js'
+ * @import { Material } from '../../../scene/materials/material.js'
+ * @import { ModelComponentSystem } from './system.js'
+ */
+/**
+ * Enables an Entity to render a model or a primitive shape. This Component attaches additional
+ * model geometry in to the scene graph below the Entity.
+ *
+ * @hideconstructor
+ * @category Graphics
+ */
+export class ModelComponent extends Component {
+    /**
+     * Create a new ModelComponent instance.
+     *
+     * @param {ModelComponentSystem} system - The ComponentSystem that created this Component.
+     * @param {Entity} entity - The Entity that this Component is attached to.
+     */
+    constructor(system: ModelComponentSystem, entity: Entity);
+    /**
+     * @type {string}
+     * @private
+     */
+    private _type;
+    /**
+     * @type {Asset|number|null}
+     * @private
+     */
+    private _asset;
+    /**
+     * @type {Model|null}
+     * @private
+     */
+    private _model;
+    /**
+     * @type {Object<string, number>}
+     * @private
+     */
+    private _mapping;
+    /**
+     * @type {boolean}
+     * @private
+     */
+    private _castShadows;
+    /**
+     * @type {boolean}
+     * @private
+     */
+    private _receiveShadows;
+    /**
+     * @type {Asset|number|null}
+     * @private
+     */
+    private _materialAsset;
+    /**
+     * @type {Material}
+     * @private
+     */
+    private _material;
+    /**
+     * @type {boolean}
+     * @private
+     */
+    private _castShadowsLightmap;
+    /**
+     * @type {boolean}
+     * @private
+     */
+    private _lightmapped;
+    /**
+     * @type {number}
+     * @private
+     */
+    private _lightmapSizeMultiplier;
+    /**
+     * Mark meshes as non-movable (optimization).
+     *
+     * @type {boolean}
+     */
+    isStatic: boolean;
+    /**
+     * @type {number[]}
+     * @private
+     */
+    private _layers;
+    /**
+     * @type {number}
+     * @private
+     */
+    private _batchGroupId;
+    /**
+     * @type {BoundingBox|null}
+     * @private
+     */
+    private _customAabb;
+    _area: any;
+    _materialEvents: any;
+    /**
+     * @type {boolean}
+     * @private
+     */
+    private _clonedModel;
+    _batchGroup: any;
+    /**
+     * @type {EventHandle|null}
+     * @private
+     */
+    private _evtLayersChanged;
+    /**
+     * @type {EventHandle|null}
+     * @private
+     */
+    private _evtLayerAdded;
+    /**
+     * @type {EventHandle|null}
+     * @private
+     */
+    private _evtLayerRemoved;
+    /**
+     * Sets the array of mesh instances contained in the component's model.
+     *
+     * @type {MeshInstance[]|null}
+     */
+    set meshInstances(value: MeshInstance[] | null);
+    /**
+     * Gets the array of mesh instances contained in the component's model.
+     *
+     * @type {MeshInstance[]|null}
+     */
+    get meshInstances(): MeshInstance[] | null;
+    /**
+     * Sets the custom object space bounding box that is used for visibility culling of attached
+     * mesh instances. This is an optimization, allowing an oversized bounding box to be specified
+     * for skinned characters in order to avoid per frame bounding box computations based on bone
+     * positions.
+     *
+     * @type {BoundingBox|null}
+     */
+    set customAabb(value: BoundingBox | null);
+    /**
+     * Gets the custom object space bounding box that is used for visibility culling of attached
+     * mesh instances.
+     *
+     * @type {BoundingBox|null}
+     */
+    get customAabb(): BoundingBox | null;
+    /**
+     * Sets the type of the component. Can be one of the following:
+     *
+     * - "asset": The component will render a model asset
+     * - "box": The component will render a box (1 unit in each dimension)
+     * - "capsule": The component will render a capsule (radius 0.5, height 2)
+     * - "cone": The component will render a cone (radius 0.5, height 1)
+     * - "cylinder": The component will render a cylinder (radius 0.5, height 1)
+     * - "plane": The component will render a plane (1 unit in each dimension)
+     * - "sphere": The component will render a sphere (radius 0.5)
+     * - "torus": The component will render a torus (tubeRadius: 0.2, ringRadius: 0.3)
+     *
+     * @type {string}
+     */
+    set type(value: string);
+    /**
+     * Gets the type of the component.
+     *
+     * @type {string}
+     */
+    get type(): string;
+    /**
+     * Sets the model owned by this component.
+     *
+     * @type {Model}
+     */
+    set model(value: Model);
+    /**
+     * Gets the model owned by this component. In this case a model is not set or loaded, this will
+     * return null.
+     *
+     * @type {Model}
+     */
+    get model(): Model;
+    /**
+     * Sets the model asset (or asset id) for the component. This only applies to model components
+     * with type 'asset'.
+     *
+     * @type {Asset|number|null}
+     */
+    set asset(value: Asset | number | null);
+    /**
+     * Gets the model asset id for the component.
+     *
+     * @type {Asset|number|null}
+     */
+    get asset(): Asset | number | null;
+    /**
+     * Sets whether the component is affected by the runtime lightmapper. If true, the meshes will
+     * be lightmapped after using lightmapper.bake().
+     *
+     * @type {boolean}
+     */
+    set lightmapped(value: boolean);
+    /**
+     * Gets whether the component is affected by the runtime lightmapper.
+     *
+     * @type {boolean}
+     */
+    get lightmapped(): boolean;
+    /**
+     * Sets the dictionary that holds material overrides for each mesh instance. Only applies to
+     * model components of type 'asset'. The mapping contains pairs of mesh instance index to
+     * material asset id.
+     *
+     * @type {Object<string, number>}
+     */
+    set mapping(value: {
+        [x: string]: number;
+    });
+    /**
+     * Gets the dictionary that holds material overrides for each mesh instance.
+     *
+     * @type {Object<string, number>}
+     */
+    get mapping(): {
+        [x: string]: number;
+    };
+    /**
+     * Sets whether attached meshes will cast shadows for lights that have shadow casting enabled.
+     *
+     * @type {boolean}
+     */
+    set castShadows(value: boolean);
+    /**
+     * Gets whether attached meshes will cast shadows for lights that have shadow casting enabled.
+     *
+     * @type {boolean}
+     */
+    get castShadows(): boolean;
+    /**
+     * Sets whether shadows will be cast on attached meshes.
+     *
+     * @type {boolean}
+     */
+    set receiveShadows(value: boolean);
+    /**
+     * Gets whether shadows will be cast on attached meshes.
+     *
+     * @type {boolean}
+     */
+    get receiveShadows(): boolean;
+    /**
+     * Sets whether meshes instances will cast shadows when rendering lightmaps.
+     *
+     * @type {boolean}
+     */
+    set castShadowsLightmap(value: boolean);
+    /**
+     * Gets whether meshes instances will cast shadows when rendering lightmaps.
+     *
+     * @type {boolean}
+     */
+    get castShadowsLightmap(): boolean;
+    /**
+     * Sets the lightmap resolution multiplier.
+     *
+     * @type {number}
+     */
+    set lightmapSizeMultiplier(value: number);
+    /**
+     * Gets the lightmap resolution multiplier.
+     *
+     * @type {number}
+     */
+    get lightmapSizeMultiplier(): number;
+    /**
+     * Sets the array of layer IDs ({@link Layer#id}) to which the mesh instances belong. Don't
+     * push, pop, splice or modify this array. If you want to change it, set a new one instead.
+     *
+     * @type {number[]}
+     */
+    set layers(value: number[]);
+    /**
+     * Gets the array of layer IDs ({@link Layer#id}) to which the mesh instances belong.
+     *
+     * @type {number[]}
+     */
+    get layers(): number[];
+    /**
+     * Sets the batch group for the mesh instances in this component (see {@link BatchGroup}).
+     * Default is -1 (no group).
+     *
+     * @type {number}
+     */
+    set batchGroupId(value: number);
+    /**
+     * Gets the batch group for the mesh instances in this component (see {@link BatchGroup}).
+     *
+     * @type {number}
+     */
+    get batchGroupId(): number;
+    /**
+     * Sets the material {@link Asset} that will be used to render the component. The material is
+     * ignored for renders of type 'asset'.
+     *
+     * @type {Asset|number|null}
+     */
+    set materialAsset(value: Asset | number | null);
+    /**
+     * Gets the material {@link Asset} that will be used to render the component.
+     *
+     * @type {Asset|number|null}
+     */
+    get materialAsset(): Asset | number | null;
+    /**
+     * Sets the {@link Material} that will be used to render the model. The material is ignored for
+     * renders of type 'asset'.
+     *
+     * @type {Material}
+     */
+    set material(value: Material);
+    /**
+     * Gets the {@link Material} that will be used to render the model.
+     *
+     * @type {Material}
+     */
+    get material(): Material;
+    addModelToLayers(): void;
+    removeModelFromLayers(): void;
+    onRemoveChild(): void;
+    onInsertChild(): void;
+    onRemove(): void;
+    /**
+     * @param {LayerComposition} oldComp - The old layer composition.
+     * @param {LayerComposition} newComp - The new layer composition.
+     * @private
+     */
+    private onLayersChanged;
+    /**
+     * @param {Layer} layer - The layer that was added.
+     * @private
+     */
+    private onLayerAdded;
+    /**
+     * @param {Layer} layer - The layer that was removed.
+     * @private
+     */
+    private onLayerRemoved;
+    /**
+     * @param {number} index - The index of the mesh instance.
+     * @param {string} event - The event name.
+     * @param {number} id - The asset id.
+     * @param {*} handler - The handler function to be bound to the specified event.
+     * @private
+     */
+    private _setMaterialEvent;
+    /** @private */
+    private _unsetMaterialEvents;
+    /**
+     * @param {string} idOrPath - The asset id or path.
+     * @returns {Asset|null} The asset.
+     * @private
+     */
+    private _getAssetByIdOrPath;
+    /**
+     * @param {string} path - The path of the model asset.
+     * @returns {string|null} The model asset URL or null if the asset is not in the registry.
+     * @private
+     */
+    private _getMaterialAssetUrl;
+    /**
+     * @param {Asset} materialAsset -The material asset to load.
+     * @param {MeshInstance} meshInstance - The mesh instance to assign the material to.
+     * @param {number} index - The index of the mesh instance.
+     * @private
+     */
+    private _loadAndSetMeshInstanceMaterial;
+    /**
+     * Stop rendering model without removing it from the scene hierarchy. This method sets the
+     * {@link MeshInstance#visible} property of every MeshInstance in the model to false Note, this
+     * does not remove the model or mesh instances from the scene hierarchy or draw call list. So
+     * the model component still incurs some CPU overhead.
+     *
+     * @example
+     * this.timer = 0;
+     * this.visible = true;
+     * // ...
+     * // blink model every 0.1 seconds
+     * this.timer += dt;
+     * if (this.timer > 0.1) {
+     *     if (!this.visible) {
+     *         this.entity.model.show();
+     *         this.visible = true;
+     *     } else {
+     *         this.entity.model.hide();
+     *         this.visible = false;
+     *     }
+     *     this.timer = 0;
+     * }
+     */
+    hide(): void;
+    /**
+     * Enable rendering of the model if hidden using {@link ModelComponent#hide}. This method sets
+     * all the {@link MeshInstance#visible} property on all mesh instances to true.
+     */
+    show(): void;
+    /**
+     * @param {Asset} asset - The material asset to bind events to.
+     * @private
+     */
+    private _bindMaterialAsset;
+    /**
+     * @param {Asset} asset - The material asset to unbind events from.
+     * @private
+     */
+    private _unbindMaterialAsset;
+    /**
+     * @param {Asset} asset - The material asset on which an asset add event has been fired.
+     * @private
+     */
+    private _onMaterialAssetAdd;
+    /**
+     * @param {Asset} asset - The material asset on which an asset load event has been fired.
+     * @private
+     */
+    private _onMaterialAssetLoad;
+    /**
+     * @param {Asset} asset - The material asset on which an asset unload event has been fired.
+     * @private
+     */
+    private _onMaterialAssetUnload;
+    /**
+     * @param {Asset} asset - The material asset on which an asset remove event has been fired.
+     * @private
+     */
+    private _onMaterialAssetRemove;
+    /**
+     * @param {Asset} asset - The material asset on which an asset change event has been fired.
+     * @private
+     */
+    private _onMaterialAssetChange;
+    /**
+     * @param {Asset} asset - The model asset to bind events to.
+     * @private
+     */
+    private _bindModelAsset;
+    /**
+     * @param {Asset} asset - The model asset to unbind events from.
+     * @private
+     */
+    private _unbindModelAsset;
+    /**
+     * @param {Asset} asset - The model asset on which an asset add event has been fired.
+     * @private
+     */
+    private _onModelAssetAdded;
+    /**
+     * @param {Asset} asset - The model asset on which an asset load event has been fired.
+     * @private
+     */
+    private _onModelAssetLoad;
+    /**
+     * @param {Asset} asset - The model asset on which an asset unload event has been fired.
+     * @private
+     */
+    private _onModelAssetUnload;
+    /**
+     * @param {Asset} asset - The model asset on which an asset change event has been fired.
+     * @param {string} attr - The attribute that was changed.
+     * @param {*} _new - The new value of the attribute.
+     * @param {*} _old - The old value of the attribute.
+     * @private
+     */
+    private _onModelAssetChange;
+    /**
+     * @param {Asset} asset - The model asset on which an asset remove event has been fired.
+     * @private
+     */
+    private _onModelAssetRemove;
+    /**
+     * @param {Material} material - The material to be set.
+     * @private
+     */
+    private _setMaterial;
+}
+import { Component } from '../component.js';
+import { MeshInstance } from '../../../scene/mesh-instance.js';
+import type { BoundingBox } from '../../../core/shape/bounding-box.js';
+import { Model } from '../../../scene/model.js';
+import { Asset } from '../../asset/asset.js';
+import type { Material } from '../../../scene/materials/material.js';
+import type { ModelComponentSystem } from './system.js';
+import type { Entity } from '../../entity.js';

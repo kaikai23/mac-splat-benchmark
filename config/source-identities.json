@@ -1,0 +1,43 @@
+{
+  "schema": "portable-three-method-source-identities-v1",
+  "visionary": {
+    "name": "Visionary",
+    "version": "1.0.1",
+    "sourceCommit": "e50f3f6c7200be0516567f0830e5240dfa26d27d",
+    "repository": "https://github.com/Visionary-Laboratory/visionary",
+    "license": "Apache-2.0",
+    "sourceDirectory": "work/visionary",
+    "sorting": "GPU FP32 radix",
+    "hostDirectory": "work/bench-visionary"
+  },
+  "spark": {
+    "name": "Spark",
+    "version": "0.1.10",
+    "sourceCommit": "792d6d193db8b79ed4d1f32ef65cca9ec93f0896",
+    "repository": "https://github.com/sparkjsdev/spark",
+    "license": "MIT",
+    "officialBundleSha256": "e2841904c3facdf2ab5177b13b4827cdc72118cb8b613673ca08d8e983c5bf9d",
+    "sorting": "Unmodified upstream default native16 Worker/WASM sorting",
+    "sortBits": 16,
+    "sort32": false,
+    "modificationId": "spark-0.1.10-timers-v1",
+    "instrumentedBundleSha256": "67272780a4e90a4bf1ac59662613aa952b44234aafed660d7c244f36d8d84a24",
+    "sourceDirectory": "work/spark-v0.1.10",
+    "hostDirectory": "work/bench-spark"
+  },
+  "supersplat": {
+    "name": "SuperSplat Editor",
+    "version": "2.1.0",
+    "sourceCommit": "2f23b4b2072da694172faa26ff44fc67f2a01ca2",
+    "repository": "https://github.com/playcanvas/supersplat",
+    "license": "MIT",
+    "sourceDirectory": "work/supersplat-v2.1",
+    "engineVersion": "2.5.1",
+    "engineCommit": "362a874c7149ee181ba68f4cc270fc7b664d7f0b",
+    "engineRepository": "https://github.com/playcanvas/engine",
+    "engineLicense": "MIT",
+    "engineDirectory": "work/supersplat-bench/vendor/playcanvas",
+    "sorting": "Native PlayCanvas JS Worker adaptive bucket sort",
+    "hostDirectory": "work/supersplat-bench"
+  }
+}

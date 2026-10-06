@@ -1,0 +1,159 @@
+{
+  "schema": "mac-arm64-cp312-locked-wheels-v1",
+  "python": "3.12",
+  "platform": "macOS arm64; minimum macOS14 for the pinned numpy wheel",
+  "versions": {
+    "torch": "2.8.0",
+    "torchvision": "0.23.0",
+    "lpips": "0.1.4",
+    "numpy": "2.2.6",
+    "Pillow": "11.3.0",
+    "scipy": "1.16.2",
+    "tqdm": "4.67.1",
+    "filelock": "3.19.1",
+    "typing-extensions": "4.15.0",
+    "sympy": "1.14.0",
+    "networkx": "3.5",
+    "jinja2": "3.1.6",
+    "fsspec": "2025.9.0",
+    "mpmath": "1.3.0",
+    "MarkupSafe": "3.0.3",
+    "setuptools": "80.9.0",
+    "matplotlib": "3.10.6",
+    "contourpy": "1.4.0",
+    "cycler": "0.12.1",
+    "fonttools": "4.66.1",
+    "kiwisolver": "1.5.1",
+    "packaging": "26.3",
+    "pyparsing": "3.3.3",
+    "python-dateutil": "2.9.0.post0",
+    "six": "1.17.0"
+  },
+  "wheels": [
+    {
+      "file": "contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "bytes": 284921,
+      "sha256": "c76f3a5318164db7d9401132fc1b5364b784c613c93fa506e3b5e6d1bf353ec8"
+    },
+    {
+      "file": "cycler-0.12.1-py3-none-any.whl",
+      "bytes": 8321,
+      "sha256": "85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30"
+    },
+    {
+      "file": "filelock-3.19.1-py3-none-any.whl",
+      "bytes": 15988,
+      "sha256": "d38e30481def20772f5baf097c122c3babc4fcdb7e14e57049eb9d88c6dc017d"
+    },
+    {
+      "file": "fonttools-4.66.1-cp312-cp312-macosx_10_13_universal2.whl",
+      "bytes": 3097433,
+      "sha256": "8526b2b7ec4db6b81efb83438be52b1264eda9a4994d867163cfe8c65581ce8d"
+    },
+    {
+      "file": "fsspec-2025.9.0-py3-none-any.whl",
+      "bytes": 199289,
+      "sha256": "530dc2a2af60a414a832059574df4a6e10cce927f6f4a78209390fe38955cfb7"
+    },
+    {
+      "file": "jinja2-3.1.6-py3-none-any.whl",
+      "bytes": 134899,
+      "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"
+    },
+    {
+      "file": "kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl",
+      "bytes": 64660,
+      "sha256": "1798e83840c3f627246104c4d8a9639c60fa068adf9ce92b61791781fa8a68c1"
+    },
+    {
+      "file": "lpips-0.1.4-py3-none-any.whl",
+      "bytes": 53763,
+      "sha256": "fd537af5828b69d2e6ffc0a397bd506dbc28ca183543617690844c08e102ec5e"
+    },
+    {
+      "file": "markupsafe-3.0.3-cp312-cp312-macosx_11_0_arm64.whl",
+      "bytes": 12020,
+      "sha256": "1872df69a4de6aead3491198eaf13810b565bdbeec3ae2dc8780f14458ec73ce"
+    },
+    {
+      "file": "matplotlib-3.10.6-cp312-cp312-macosx_11_0_arm64.whl",
+      "bytes": 8128262,
+      "sha256": "1678bb61d897bb4ac4757b5ecfb02bfb3fddf7f808000fb81e09c510712fda75"
+    },
+    {
+      "file": "mpmath-1.3.0-py3-none-any.whl",
+      "bytes": 536198,
+      "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+    },
+    {
+      "file": "networkx-3.5-py3-none-any.whl",
+      "bytes": 2034406,
+      "sha256": "0030d386a9a06dee3565298b4a734b68589749a544acbb6c412dc9e2489ec6ec"
+    },
+    {
+      "file": "numpy-2.2.6-cp312-cp312-macosx_14_0_arm64.whl",
+      "bytes": 5084103,
+      "sha256": "894b3a42502226a1cac872f840030665f33326fc3dac8e57c607905773cdcde3"
+    },
+    {
+      "file": "packaging-26.3-py3-none-any.whl",
+      "bytes": 129956,
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+    },
+    {
+      "file": "pillow-11.3.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "bytes": 4686296,
+      "sha256": "921bd305b10e82b4d1f5e802b6850677f965d8394203d182f078873851dada69"
+    },
+    {
+      "file": "pyparsing-3.3.3-py3-none-any.whl",
+      "bytes": 126420,
+      "sha256": "ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4"
+    },
+    {
+      "file": "python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+      "bytes": 229892,
+      "sha256": "a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"
+    },
+    {
+      "file": "scipy-1.16.2-cp312-cp312-macosx_14_0_arm64.whl",
+      "bytes": 20879905,
+      "sha256": "fac4f8ce2ddb40e2e3d0f7ec36d2a1e7f92559a2471e59aec37bd8d9de01fec0"
+    },
+    {
+      "file": "setuptools-80.9.0-py3-none-any.whl",
+      "bytes": 1201486,
+      "sha256": "062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922"
+    },
+    {
+      "file": "six-1.17.0-py2.py3-none-any.whl",
+      "bytes": 11050,
+      "sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"
+    },
+    {
+      "file": "sympy-1.14.0-py3-none-any.whl",
+      "bytes": 6299353,
+      "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5"
+    },
+    {
+      "file": "torch-2.8.0-cp312-none-macosx_11_0_arm64.whl",
+      "bytes": 73630478,
+      "sha256": "619c2869db3ada2c0105487ba21b5008defcc472d23f8b80ed91ac4a380283b0"
+    },
+    {
+      "file": "torchvision-0.23.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "bytes": 1856885,
+      "sha256": "e0e2c04a91403e8dd3af9756c6a024a1d9c0ed9c0d592a8314ded8f4fe30d440"
+    },
+    {
+      "file": "tqdm-4.67.1-py3-none-any.whl",
+      "bytes": 78540,
+      "sha256": "26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2"
+    },
+    {
+      "file": "typing_extensions-4.15.0-py3-none-any.whl",
+      "bytes": 44614,
+      "sha256": "f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548"
+    }
+  ]
+}

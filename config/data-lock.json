@@ -1,0 +1,104 @@
+{
+  "schema": "portable-locked-assets-v1",
+  "iteration": 30000,
+  "models": 52,
+  "heldoutViews": 378,
+  "manifestPathPolicy": "Only machine-specific absolute path fields removed; relative_path, bytes, SHA256 and archive identities retained unchanged.",
+  "manifests": [
+    {
+      "path": "config/data/manifest.json",
+      "sha256": "8cc2eb7e6aee0c97be985e3d5384ca363fad4d178d2e49ea8771b39d11f79f71",
+      "originalManifestSha256": "d3669426efecd97f4d59b097b71604201e1108f5df1adf7c5b1b8edb519be3ce"
+    },
+    {
+      "path": "config/data/subsets-manifest.json",
+      "sha256": "705c9f08dc17435107debbbcbe8bc9adf19e280189c89a195707f509b0eafc8e",
+      "originalManifestSha256": "2493df40a880487642bf3cb9d3813ce9aea6fa76d8fa6a5e60f3c07ea87df3d0"
+    },
+    {
+      "path": "config/data/official-archive-inventory.json",
+      "sha256": "7f00df3e7f18818d29c5dac926f5e92c2274e8edb622b4a2e1311ed25464ba3d",
+      "originalManifestSha256": "493f635dbe2de00be79155b7d939c1483e727e1061326fa13b33d18f8c2557b9"
+    }
+  ],
+  "cameras": [
+    {
+      "scene": "bicycle",
+      "path": "config/cameras/bicycle/heldout_cameras.json",
+      "sha256": "d33762f76e30f0674f03d8b68f8fb0d18162d320a0d4fa047238871c61ef2b81",
+      "views": 25
+    },
+    {
+      "scene": "flowers",
+      "path": "config/cameras/flowers/heldout_cameras.json",
+      "sha256": "9e6e4a8fb858519a78883bc04bab4061e73efc129149de891da6b000893b02b8",
+      "views": 22
+    },
+    {
+      "scene": "garden",
+      "path": "config/cameras/garden/heldout_cameras.json",
+      "sha256": "bc5a7aae430881f8d5f1b1125caa1cc4d7ab34c4b4182790ccd3aa7e745ef729",
+      "views": 24
+    },
+    {
+      "scene": "stump",
+      "path": "config/cameras/stump/heldout_cameras.json",
+      "sha256": "be6c93b9c7c6eebe80c9b76ae2b4079a5a960331a00b79b188143273ac969d42",
+      "views": 16
+    },
+    {
+      "scene": "treehill",
+      "path": "config/cameras/treehill/heldout_cameras.json",
+      "sha256": "767ecf244b510ff618932220229a26cb74abef71b8fe9b81572fe77e1e9cf6a9",
+      "views": 18
+    },
+    {
+      "scene": "room",
+      "path": "config/cameras/room/heldout_cameras.json",
+      "sha256": "d3ba9a8247b2ca6ad14246d7d34cdf53e568d324055b01544ac7c1e7ca4578e2",
+      "views": 39
+    },
+    {
+      "scene": "counter",
+      "path": "config/cameras/counter/heldout_cameras.json",
+      "sha256": "a2b9d59eb125d4fd40575bce5a75712760130926d40ff154fbcad68b73c89e74",
+      "views": 30
+    },
+    {
+      "scene": "kitchen",
+      "path": "config/cameras/kitchen/heldout_cameras.json",
+      "sha256": "9e0ade965d2b2170792b5eceff46c60c16fcc1364b34d8234e253d3e354294c9",
+      "views": 35
+    },
+    {
+      "scene": "bonsai",
+      "path": "config/cameras/bonsai/heldout_cameras.json",
+      "sha256": "426257a97d7c29dd455133eed3d87d7867181001e6d1010f95bfa7bc6f24ea89",
+      "views": 37
+    },
+    {
+      "scene": "drjohnson",
+      "path": "config/cameras/drjohnson/heldout_cameras.json",
+      "sha256": "22e7182471104b50b5f104c261de2a89e3b7ed1c623d8287722b166b18960f7f",
+      "views": 33
+    },
+    {
+      "scene": "playroom",
+      "path": "config/cameras/playroom/heldout_cameras.json",
+      "sha256": "9aee42cce13b74e1e0b30c416ecef5c1679210c79663610f0e0cce82aa9affe8",
+      "views": 29
+    },
+    {
+      "scene": "truck",
+      "path": "config/cameras/truck/heldout_cameras.json",
+      "sha256": "95e12e2f9c59658a8628d8b406cc0ca33cf20a2abfe0102e7b74083ee6527518",
+      "views": 32
+    },
+    {
+      "scene": "train",
+      "path": "config/cameras/train/heldout_cameras.json",
+      "sha256": "7276a5977ed1bc8f69050a291538df3a2b51ce699867b8f440d513be5fc86535",
+      "views": 38
+    }
+  ]
+}

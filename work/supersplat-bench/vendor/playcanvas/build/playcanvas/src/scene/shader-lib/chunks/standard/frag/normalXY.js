@@ -1,0 +1,3 @@
+var normalXYPS = "\nvec3 unpackNormal(vec4 nmap) {\n	vec3 normal;\n	normal.xy = nmap.wy * 2.0 - 1.0;\n	normal.z = sqrt(1.0 - saturate(dot(normal.xy, normal.xy)));\n	return normal;\n}\n";
+
+export { normalXYPS as default };

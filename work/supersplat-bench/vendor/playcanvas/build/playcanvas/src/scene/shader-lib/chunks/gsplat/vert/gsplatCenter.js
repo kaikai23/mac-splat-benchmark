@@ -1,0 +1,3 @@
+var gsplatCenterVS = "\nuniform mat4 matrix_model;\nuniform mat4 matrix_view;\nuniform mat4 matrix_projection;\nbool initCenter(vec3 modelCenter, out SplatCenter center) {\n	mat4 modelView = matrix_view * matrix_model;\n	vec4 centerView = modelView * vec4(modelCenter, 1.0);\n	if (centerView.z > 0.0) {\n		return false;\n	}\n	vec4 centerProj = matrix_projection * centerView;\n	centerProj.z = clamp(centerProj.z, -abs(centerProj.w), abs(centerProj.w));\n	center.view = centerView.xyz / centerView.w;\n	center.proj = centerProj;\n	center.projMat00 = matrix_projection[0][0];\n	center.modelView = modelView;\n	return true;\n}\n";
+
+export { gsplatCenterVS as default };

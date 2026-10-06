@@ -1,0 +1,2 @@
+declare const _default: "\nuniform float material_sheenGloss;\n\nvoid getSheenGlossiness() {\n    float sheenGlossiness = material_sheenGloss;\n\n    #ifdef MAPTEXTURE\n    sheenGlossiness *= texture2DBias($SAMPLER, $UV, textureBias).$CH;\n    #endif\n\n    #ifdef MAPVERTEX\n    sheenGlossiness *= saturate(vVertexColor.$VC);\n    #endif\n\n    #ifdef MAPINVERT\n    sheenGlossiness = 1.0 - sheenGlossiness;\n    #endif\n\n    sheenGlossiness += 0.0000001;\n    sGlossiness = sheenGlossiness;\n}\n";
+export default _default;

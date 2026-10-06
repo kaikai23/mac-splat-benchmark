@@ -1,0 +1,24 @@
+import { GlbContainerResource } from './glb-container-resource.js';
+import { GlbParser } from './glb-parser.js';
+
+class GlbModelParser {
+		parse(data, callback, asset) {
+				var _asset_options;
+				GlbParser.parse('filename.glb', '', data, this._device, this._assets, (_asset_options = asset == null ? undefined : asset.options) != null ? _asset_options : {}, (err, result)=>{
+						if (err) {
+								callback(err);
+						} else {
+								var model = GlbContainerResource.createModel(result, this._defaultMaterial);
+								result.destroy();
+								callback(null, model);
+						}
+				});
+		}
+		constructor(modelHandler){
+				this._device = modelHandler.device;
+				this._defaultMaterial = modelHandler.defaultMaterial;
+				this._assets = modelHandler.assets;
+		}
+}
+
+export { GlbModelParser };

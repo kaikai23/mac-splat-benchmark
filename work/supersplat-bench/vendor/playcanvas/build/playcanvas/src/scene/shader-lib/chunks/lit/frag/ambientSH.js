@@ -1,0 +1,3 @@
+var ambientSHPS = "\nuniform vec3 ambientSH[9];\nvoid addAmbient(vec3 worldNormal) {\n	vec3 n = cubeMapRotate(worldNormal);\n	vec3 color =\n		ambientSH[0] +\n		ambientSH[1] * n.x +\n		ambientSH[2] * n.y +\n		ambientSH[3] * n.z +\n		ambientSH[4] * n.x * n.z +\n		ambientSH[5] * n.z * n.y +\n		ambientSH[6] * n.y * n.x +\n		ambientSH[7] * (3.0 * n.z * n.z - 1.0) +\n		ambientSH[8] * (n.x * n.x - n.y * n.y);\n	dDiffuseLight += processEnvironment(max(color, vec3(0.0)));\n}\n";
+
+export { ambientSHPS as default };

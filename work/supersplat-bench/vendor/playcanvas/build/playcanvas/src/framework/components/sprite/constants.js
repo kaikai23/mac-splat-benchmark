@@ -1,0 +1,4 @@
+var SPRITETYPE_SIMPLE = 'simple';
+var SPRITETYPE_ANIMATED = 'animated';
+
+export { SPRITETYPE_ANIMATED, SPRITETYPE_SIMPLE };

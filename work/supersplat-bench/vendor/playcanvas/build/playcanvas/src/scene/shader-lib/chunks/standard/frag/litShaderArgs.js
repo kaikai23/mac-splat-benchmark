@@ -1,0 +1,3 @@
+var litShaderArgsPS = "\nvec3 litArgs_albedo;\nfloat litArgs_opacity;\nvec3 litArgs_emission;\nvec3 litArgs_worldNormal;\nfloat litArgs_ao;\nvec3 litArgs_lightmap;\nvec3 litArgs_lightmapDir;\nfloat litArgs_metalness;\nvec3 litArgs_specularity;\nfloat litArgs_specularityFactor;\nfloat litArgs_gloss;\nfloat litArgs_sheen_gloss;\nvec3 litArgs_sheen_specularity;\nfloat litArgs_transmission;\nfloat litArgs_thickness;\nfloat litArgs_ior;\nfloat litArgs_dispersion;\nfloat litArgs_iridescence_intensity;\nfloat litArgs_iridescence_thickness;\nvec3 litArgs_clearcoat_worldNormal;\nfloat litArgs_clearcoat_specularity;\nfloat litArgs_clearcoat_gloss;\n";
+
+export { litShaderArgsPS as default };

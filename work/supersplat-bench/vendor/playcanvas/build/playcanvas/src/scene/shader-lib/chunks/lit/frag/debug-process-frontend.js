@@ -1,0 +1,3 @@
+var debugProcessFrontendPS = "\n#ifdef DEBUG_LIGHTING_PASS\nlitArgs_albedo = vec3(0.5);\n#endif\n#ifdef DEBUG_UV0_PASS\n#ifdef VARYING_VUV0\nlitArgs_albedo = vec3(vUv0, 0);\n#else\nlitArgs_albedo = vec3(0);\n#endif\n#endif\n";
+
+export { debugProcessFrontendPS as default };

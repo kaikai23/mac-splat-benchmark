@@ -1,0 +1,3 @@
+var gammaPS = '\n#include "decodePS"\n#if (GAMMA == SRGB)\n	float gammaCorrectInput(float color) {\n		return decodeGamma(color);\n	}\n	vec3 gammaCorrectInput(vec3 color) {\n		return decodeGamma(color);\n	}\n	vec4 gammaCorrectInput(vec4 color) {\n		return vec4(decodeGamma(color.xyz), color.w);\n	}\n	vec3 gammaCorrectOutput(vec3 color) {\n		return pow(color + 0.0000001, vec3(1.0 / 2.2));\n	}\n#else\n	float gammaCorrectInput(float color) {\n		return color;\n	}\n	vec3 gammaCorrectInput(vec3 color) {\n		return color;\n	}\n	vec4 gammaCorrectInput(vec4 color) {\n		return color;\n	}\n	vec3 gammaCorrectOutput(vec3 color) {\n		return color;\n	}\n#endif\n';
+
+export { gammaPS as default };

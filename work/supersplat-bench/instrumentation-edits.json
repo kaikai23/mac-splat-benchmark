@@ -1,0 +1,42 @@
+[
+  {
+    "before": "var forceUpdate = false;",
+    "after": "var forceUpdate = false;\n        var benchmarkRequest = null;\n        var benchmarkSequence = 0;"
+  },
+  {
+    "before": "forceUpdate = false;\n\t\t\t\tlastCameraPosition.x = px;",
+    "after": "forceUpdate = false;\n                var benchmarkStart = performance.now();\n\t\t\t\tlastCameraPosition.x = px;"
+  },
+  {
+    "before": "for(var i2 = 1; i2 < bucketCount; i2++){",
+    "after": "var benchmarkKeysDone = performance.now();\n                for(var i2 = 1; i2 < bucketCount; i2++){"
+  },
+  {
+    "before": "var dist = (i)=>distances[order[i]] / divider + minDist;",
+    "after": "var benchmarkSortDone = performance.now();\n                var dist = (i)=>distances[order[i]] / divider + minDist;"
+  },
+  {
+    "before": "self.postMessage({\n\t\t\t\t\t\torder: order.buffer,",
+    "after": "var benchmarkEnd = performance.now();\n                var benchmark = {\n                    requestId: benchmarkRequest?.requestId ?? null,\n                    sortSequence: ++benchmarkSequence,\n                    sourceOrigin: [px, py, pz], sourceDirection: [dx, dy, dz],\n                    cpuPrepMs: benchmarkKeysDone - benchmarkStart,\n                    cpuSortMs: benchmarkSortDone - benchmarkKeysDone,\n                    cpuPostprocessMs: benchmarkEnd - benchmarkSortDone,\n                    cpuWorkerSpanMs: benchmarkEnd - benchmarkStart,\n                    sortedSplats: numVertices, activeSplats: count, compareBits, bucketCount\n                };\n                benchmarkRequest = null;\n                self.postMessage({\n                        benchmark,\n\t\t\t\t\t\torder: order.buffer,"
+  },
+  {
+    "before": "if (message.data.cameraPosition) cameraPosition = message.data.cameraPosition;",
+    "after": "if (message.data.benchmarkRequest) {\n                    benchmarkRequest = message.data.benchmarkRequest;\n                    if (benchmarkRequest.force) forceUpdate = true;\n                } else if (message.data.cameraPosition) {\n                    benchmarkRequest = null;\n                }\n                if (message.data.cameraPosition) cameraPosition = message.data.cameraPosition;"
+  },
+  {
+    "before": "class GSplatSorter extends EventHandler {",
+    "after": "class GSplatSorter extends EventHandler {\n        benchmarkInstrumentation = true;\n        benchmarkLastResult = null;"
+  },
+  {
+    "before": "this.fire('updated', message.data.count);",
+    "after": "this.benchmarkLastResult = message.data.benchmark;\n                        this.fire('updated', message.data.count);"
+  },
+  {
+    "before": "from '../../core/event-handler.js'",
+    "after": "from '../vendor/playcanvas/build/playcanvas/src/core/event-handler.js'"
+  },
+  {
+    "before": "from '../../platform/graphics/constants.js'",
+    "after": "from '../vendor/playcanvas/build/playcanvas/src/platform/graphics/constants.js'"
+  }
+]

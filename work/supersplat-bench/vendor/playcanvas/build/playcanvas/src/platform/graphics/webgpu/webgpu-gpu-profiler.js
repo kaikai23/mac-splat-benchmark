@@ -1,0 +1,36 @@
+import { GpuProfiler } from '../gpu-profiler.js';
+import { WebgpuQuerySet } from './webgpu-query-set.js';
+
+class WebgpuGpuProfiler extends GpuProfiler {
+		destroy() {
+				var _this_timestampQueriesSet;
+				(_this_timestampQueriesSet = this.timestampQueriesSet) == null ? undefined : _this_timestampQueriesSet.destroy();
+				this.timestampQueriesSet = null;
+		}
+		frameStart() {
+				this.processEnableRequest();
+		}
+		frameEnd() {
+				if (this._enabled) {
+						var _this_timestampQueriesSet;
+						(_this_timestampQueriesSet = this.timestampQueriesSet) == null ? undefined : _this_timestampQueriesSet.resolve(this.slotCount * 2);
+				}
+		}
+		request() {
+				if (this._enabled) {
+						var _this_timestampQueriesSet;
+						var renderVersion = this.device.renderVersion;
+						(_this_timestampQueriesSet = this.timestampQueriesSet) == null ? undefined : _this_timestampQueriesSet.request(this.slotCount, renderVersion).then((results)=>{
+								this.report(results.renderVersion, results.timings);
+						});
+						super.request(renderVersion);
+				}
+		}
+		constructor(device){
+				super();
+				this.device = device;
+				this.timestampQueriesSet = device.supportsTimestampQuery ? new WebgpuQuerySet(device, true, 512) : null;
+		}
+}
+
+export { WebgpuGpuProfiler };

@@ -1,0 +1,198 @@
+class ResourceLoader {
+		addHandler(type, handler) {
+				this._handlers[type] = handler;
+				handler._loader = this;
+		}
+		removeHandler(type) {
+				delete this._handlers[type];
+		}
+		getHandler(type) {
+				return this._handlers[type];
+		}
+		static makeKey(url, type) {
+				return url + "-" + type;
+		}
+		load(url, type, callback, asset, options) {
+				var handler = this._handlers[type];
+				if (!handler) {
+						var err = "No resource handler for asset type: '" + type + "' when loading [" + url + "]";
+						callback(err);
+						return;
+				}
+				if (!url) {
+						this._loadNull(handler, callback, asset);
+						return;
+				}
+				var key = ResourceLoader.makeKey(url, type);
+				if (this._cache[key] !== undefined) {
+						callback(null, this._cache[key]);
+				} else if (this._requests[key]) {
+						this._requests[key].push(callback);
+				} else {
+						this._requests[key] = [
+								callback
+						];
+						var self = this;
+						var handleLoad = function handleLoad(err, urlObj) {
+								if (err) {
+										self._onFailure(key, err);
+										return;
+								}
+								if (urlObj.load instanceof DataView) {
+										if (handler.openBinary) {
+												if (!self._requests[key]) {
+														return;
+												}
+												try {
+														var data = handler.openBinary(urlObj.load);
+														self._onSuccess(key, data);
+												} catch (err) {
+														self._onFailure(key, err);
+												}
+												return;
+										}
+										urlObj.load = URL.createObjectURL(new Blob([
+												urlObj.load
+										]));
+										if (asset) {
+												if (asset.urlObject) {
+														URL.revokeObjectURL(asset.urlObject);
+												}
+												asset.urlObject = urlObj.load;
+										}
+								}
+								handler.load(urlObj, (err, data, extra)=>{
+										if (!self._requests[key]) {
+												return;
+										}
+										if (err) {
+												self._onFailure(key, err);
+												return;
+										}
+										try {
+												self._onSuccess(key, handler.open(urlObj.original, data, asset), extra);
+										} catch (e) {
+												self._onFailure(key, e);
+										}
+								}, asset);
+						};
+						var normalizedUrl = url.split('?')[0];
+						if (this._app.enableBundles && this._app.bundles.hasUrl(normalizedUrl) && !(options && options.bundlesIgnore)) {
+								if (!this._app.bundles.urlIsLoadedOrLoading(normalizedUrl)) {
+										var _this__app_assets;
+										var bundles = this._app.bundles.listBundlesForAsset(asset);
+										var bundle;
+										if (options && options.bundlesFilter) {
+												bundle = options.bundlesFilter(bundles);
+										}
+										if (!bundle) {
+												bundles == null ? undefined : bundles.sort((a, b)=>{
+														return a.file.size - b.file.size;
+												});
+												bundle = bundles == null ? undefined : bundles[0];
+										}
+										if (bundle) (_this__app_assets = this._app.assets) == null ? undefined : _this__app_assets.load(bundle);
+								}
+								this._app.bundles.loadUrl(normalizedUrl, (err, fileUrlFromBundle)=>{
+										handleLoad(err, {
+												load: fileUrlFromBundle,
+												original: normalizedUrl
+										});
+								});
+						} else {
+								handleLoad(null, {
+										load: url,
+										original: asset && asset.file.filename || url
+								});
+						}
+				}
+		}
+		_loadNull(handler, callback, asset) {
+				var onLoad = function onLoad(err, data, extra) {
+						if (err) {
+								callback(err);
+						} else {
+								try {
+										callback(null, handler.open(null, data, asset), extra);
+								} catch (e) {
+										callback(e);
+								}
+						}
+				};
+				handler.load(null, onLoad, asset);
+		}
+		_onSuccess(key, result, extra) {
+				if (result !== null) {
+						this._cache[key] = result;
+				} else {
+						delete this._cache[key];
+				}
+				for(var i = 0; i < this._requests[key].length; i++){
+						this._requests[key][i](null, result, extra);
+				}
+				delete this._requests[key];
+		}
+		_onFailure(key, err) {
+				console.error(err);
+				if (this._requests[key]) {
+						for(var i = 0; i < this._requests[key].length; i++){
+								this._requests[key][i](err);
+						}
+						delete this._requests[key];
+				}
+		}
+		open(type, data) {
+				var handler = this._handlers[type];
+				if (!handler) {
+						console.warn("No resource handler found for: " + type);
+						return data;
+				}
+				return handler.open(null, data);
+		}
+		patch(asset, assets) {
+				var handler = this._handlers[asset.type];
+				if (!handler) {
+						console.warn("No resource handler found for: " + asset.type);
+						return;
+				}
+				if (handler.patch) {
+						handler.patch(asset, assets);
+				}
+		}
+		clearCache(url, type) {
+				var key = ResourceLoader.makeKey(url, type);
+				delete this._cache[key];
+		}
+		getFromCache(url, type) {
+				var key = ResourceLoader.makeKey(url, type);
+				if (this._cache[key]) {
+						return this._cache[key];
+				}
+				return undefined;
+		}
+		enableRetry(maxRetries) {
+				if (maxRetries === undefined) maxRetries = 5;
+				maxRetries = Math.max(0, maxRetries) || 0;
+				for(var key in this._handlers){
+						this._handlers[key].maxRetries = maxRetries;
+				}
+		}
+		disableRetry() {
+				for(var key in this._handlers){
+						this._handlers[key].maxRetries = 0;
+				}
+		}
+		destroy() {
+				this._handlers = {};
+				this._requests = {};
+				this._cache = {};
+		}
+		constructor(app){
+				this._handlers = {};
+				this._requests = {};
+				this._cache = {};
+				this._app = app;
+		}
+}
+
+export { ResourceLoader };

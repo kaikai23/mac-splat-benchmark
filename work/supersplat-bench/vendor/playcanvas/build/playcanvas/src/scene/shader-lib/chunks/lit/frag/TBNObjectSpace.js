@@ -1,0 +1,3 @@
+var TBNObjectSpacePS = "\nvoid getTBN(vec3 tangent, vec3 binormal, vec3 normal) {\n	vec3 B = cross(normal, vObjectSpaceUpW);\n	vec3 T = cross(normal, B);\n	if (dot(B,B)==0.0)\n	{\n		float major=max(max(normal.x, normal.y), normal.z);\n		if (normal.x == major)\n		{\n			B=cross(normal, vec3(0,1,0));\n			T=cross(normal, B);\n		}\n		else if (normal.y == major)\n		{\n			B=cross(normal, vec3(0,0,1));\n			T=cross(normal, B);\n		}\n		else if (normal.z == major)\n		{\n			B=cross(normal, vec3(1,0,0));\n			T=cross(normal, B);\n		}\n	}\n	dTBN = mat3(normalize(T), normalize(B), normalize(normal));\n}\n";
+
+export { TBNObjectSpacePS as default };

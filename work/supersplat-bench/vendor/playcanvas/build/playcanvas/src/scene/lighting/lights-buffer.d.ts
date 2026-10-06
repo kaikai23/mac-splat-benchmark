@@ -1,0 +1,35 @@
+export class LightsBuffer {
+    static getShaderDefines(): any;
+    constructor(device: any);
+    areaLightsEnabled: boolean;
+    device: any;
+    cookiesEnabled: boolean;
+    shadowsEnabled: boolean;
+    maxLights: number;
+    lights8: Uint8ClampedArray<ArrayBuffer>;
+    lightsTexture8: Texture;
+    _lightsTexture8Id: any;
+    lightsFloat: Float32Array<ArrayBuffer>;
+    lightsTextureFloat: Texture;
+    _lightsTextureFloatId: any;
+    invMaxColorValue: number;
+    invMaxAttenuation: number;
+    boundsMin: Vec3;
+    boundsDelta: Vec3;
+    destroy(): void;
+    createTexture(device: any, width: any, height: any, format: any, name: any): Texture;
+    setCompressionRanges(maxAttenuation: any, maxColorValue: any): void;
+    setBounds(min: any, delta: any): void;
+    uploadTextures(): void;
+    updateUniforms(): void;
+    getSpotDirection(direction: any, spot: any): void;
+    getLightAreaSizes(light: any): Float32Array<ArrayBuffer>;
+    addLightDataFlags(data8: any, index: any, light: any, isSpot: any, castShadows: any, shadowIntensity: any): void;
+    addLightDataColor(data8: any, index: any, light: any, isCookie: any): void;
+    addLightDataSpotAngles(data8: any, index: any, light: any): void;
+    addLightDataShadowBias(data8: any, index: any, light: any): void;
+    addLightDataCookies(data8: any, index: any, light: any): void;
+    addLightData(light: any, lightIndex: any): void;
+}
+import { Texture } from '../../platform/graphics/texture.js';
+import { Vec3 } from '../../core/math/vec3.js';

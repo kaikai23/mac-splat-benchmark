@@ -1,0 +1,117 @@
+import { Color } from '../../core/math/color.js';
+import { Texture } from '../../platform/graphics/texture.js';
+import { RenderTarget } from '../../platform/graphics/render-target.js';
+import { RenderPass } from '../../platform/graphics/render-pass.js';
+import { FILTER_LINEAR, ADDRESS_CLAMP_TO_EDGE, PIXELFORMAT_RG8, PIXELFORMAT_R8 } from '../../platform/graphics/constants.js';
+import { RenderPassDownsample } from './render-pass-downsample.js';
+import { RenderPassCoC } from './render-pass-coc.js';
+import { RenderPassDofBlur } from './render-pass-dof-blur.js';
+
+class RenderPassDof extends RenderPass {
+		destroy() {
+				this.destroyRenderPasses();
+				this.cocPass = null;
+				this.farPass = null;
+				this.blurPass = null;
+				this.destroyRT(this.cocRT);
+				this.destroyRT(this.farRt);
+				this.destroyRT(this.blurRt);
+				this.cocRT = null;
+				this.farRt = null;
+				this.blurRt = null;
+		}
+		destroyRenderPasses() {
+				for(var i = 0; i < this.beforePasses.length; i++){
+						this.beforePasses[i].destroy();
+				}
+				this.beforePasses.length = 0;
+		}
+		destroyRT(rt) {
+				if (rt) {
+						rt.destroyTextureBuffers();
+						rt.destroy();
+				}
+		}
+		setupCocPass(device, cameraComponent, sourceTexture, nearBlur) {
+				var format = nearBlur ? PIXELFORMAT_RG8 : PIXELFORMAT_R8;
+				this.cocRT = this.createRenderTarget('CoCTexture', format);
+				this.cocTexture = this.cocRT.colorBuffer;
+				var cocPass = new RenderPassCoC(device, cameraComponent, nearBlur);
+				cocPass.init(this.cocRT, {
+						resizeSource: sourceTexture
+				});
+				cocPass.setClearColor(Color.BLACK);
+				return cocPass;
+		}
+		setupFarPass(device, sourceTexture, scale) {
+				this.farRt = this.createRenderTarget('FarDofTexture', sourceTexture.format);
+				var farPass = new RenderPassDownsample(device, sourceTexture, {
+						boxFilter: true,
+						premultiplyTexture: this.cocTexture,
+						premultiplySrcChannel: 'r'
+				});
+				farPass.init(this.farRt, {
+						resizeSource: sourceTexture,
+						scaleX: scale,
+						scaleY: scale
+				});
+				farPass.setClearColor(Color.BLACK);
+				return farPass;
+		}
+		setupBlurPass(device, nearTexture, nearBlur, scale) {
+				var _this_farRt;
+				var farTexture = (_this_farRt = this.farRt) == null ? undefined : _this_farRt.colorBuffer;
+				this.blurRt = this.createRenderTarget('DofBlurTexture', nearTexture.format);
+				this.blurTexture = this.blurRt.colorBuffer;
+				var blurPass = new RenderPassDofBlur(device, nearBlur ? nearTexture : null, farTexture, this.cocTexture);
+				blurPass.init(this.blurRt, {
+						resizeSource: nearTexture,
+						scaleX: scale,
+						scaleY: scale
+				});
+				blurPass.setClearColor(Color.BLACK);
+				return blurPass;
+		}
+		createTexture(name, format) {
+				return new Texture(this.device, {
+						name: name,
+						width: 1,
+						height: 1,
+						format: format,
+						mipmaps: false,
+						minFilter: FILTER_LINEAR,
+						magFilter: FILTER_LINEAR,
+						addressU: ADDRESS_CLAMP_TO_EDGE,
+						addressV: ADDRESS_CLAMP_TO_EDGE
+				});
+		}
+		createRenderTarget(name, format) {
+				return new RenderTarget({
+						colorBuffer: this.createTexture(name, format),
+						depth: false,
+						stencil: false
+				});
+		}
+		frameUpdate() {
+				super.frameUpdate();
+				this.cocPass.focusDistance = this.focusDistance;
+				this.cocPass.focusRange = this.focusRange;
+				this.blurPass.blurRadiusNear = this.blurRadius;
+				this.blurPass.blurRadiusFar = this.blurRadius * (this.highQuality ? 1 : 0.5);
+				this.blurPass.blurRings = this.blurRings;
+				this.blurPass.blurRingPoints = this.blurRingPoints;
+		}
+		constructor(device, cameraComponent, sceneTexture, sceneTextureHalf, highQuality, nearBlur){
+				super(device), this.focusDistance = 100, this.focusRange = 50, this.blurRadius = 1, this.blurRings = 3, this.blurRingPoints = 3, this.highQuality = true, this.cocTexture = null, this.blurTexture = null, this.cocPass = null, this.farPass = null, this.blurPass = null;
+				this.highQuality = highQuality;
+				this.cocPass = this.setupCocPass(device, cameraComponent, sceneTexture, nearBlur);
+				this.beforePasses.push(this.cocPass);
+				var sourceTexture = highQuality ? sceneTexture : sceneTextureHalf;
+				this.farPass = this.setupFarPass(device, sourceTexture, 0.5);
+				this.beforePasses.push(this.farPass);
+				this.blurPass = this.setupBlurPass(device, sceneTextureHalf, nearBlur, highQuality ? 2 : 0.5);
+				this.beforePasses.push(this.blurPass);
+		}
+}
+
+export { RenderPassDof };

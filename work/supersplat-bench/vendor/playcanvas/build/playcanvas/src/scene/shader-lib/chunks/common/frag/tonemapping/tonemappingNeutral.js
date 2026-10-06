@@ -1,0 +1,3 @@
+var tonemappingNeutralPS = "\nuniform float exposure;\nvec3 toneMap(vec3 color) {\n	color *= exposure;\n	float startCompression = 0.8 - 0.04;\n	float desaturation = 0.15;\n	float x = min(color.r, min(color.g, color.b));\n	float offset = x < 0.08 ? x - 6.25 * x * x : 0.04;\n	color -= offset;\n	float peak = max(color.r, max(color.g, color.b));\n	if (peak < startCompression) return color;\n	float d = 1. - startCompression;\n	float newPeak = 1. - d * d / (peak + d - startCompression);\n	color *= newPeak / peak;\n	float g = 1. - 1. / (desaturation * (peak - newPeak) + 1.);\n	return mix(color, newPeak * vec3(1, 1, 1), g);\n}\n";
+
+export { tonemappingNeutralPS as default };

@@ -1,0 +1,4 @@
+var SCALEMODE_NONE = 'none';
+var SCALEMODE_BLEND = 'blend';
+
+export { SCALEMODE_BLEND, SCALEMODE_NONE };

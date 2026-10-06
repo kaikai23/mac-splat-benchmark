@@ -1,0 +1,5 @@
+var SSAOTYPE_NONE = 'none';
+var SSAOTYPE_LIGHTING = 'lighting';
+var SSAOTYPE_COMBINE = 'combine';
+
+export { SSAOTYPE_COMBINE, SSAOTYPE_LIGHTING, SSAOTYPE_NONE };

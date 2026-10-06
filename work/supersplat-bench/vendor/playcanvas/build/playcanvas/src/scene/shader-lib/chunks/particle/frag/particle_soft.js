@@ -1,0 +1,3 @@
+var particle_softPS = "\n	float depth = getLinearScreenDepth();\n	float particleDepth = vDepth;\n	float depthDiff = saturate(abs(particleDepth - depth) * softening);\n	a *= depthDiff;\n";
+
+export { particle_softPS as default };

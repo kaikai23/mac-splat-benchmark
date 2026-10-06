@@ -1,0 +1,20 @@
+{
+  "schema": "supersplat-editor-2.1.0-benchmark-instrumentation-v1",
+  "editorVersion": "2.1.0",
+  "editorCommit": "2f23b4b2072da694172faa26ff44fc67f2a01ca2",
+  "playcanvasVersion": "2.5.1",
+  "playcanvasCommit": "362a874c7149ee181ba68f4cc270fc7b664d7f0b",
+  "releaseSorterSha256": "a157d1259ed5b7800e3766d68a08844e5174cafe7aebbc3137d7179e43d120e1",
+  "instrumentedSorterSha256": "382b764c7b56088764166e792dc2a66d5bfdd34b2c2555969c6ee1981a3dc7f0",
+  "builderSha256": "d96ca8596f779392da09227859677490461e9eb97856fd9c1a4459714cb7472d",
+  "reversePatchExact": true,
+  "algorithmChanges": "none; original release module plus timers and benchmark-only forced-current-view request flag",
+  "originalReleaseTreeModified": false,
+  "cpuPrep": "bounds/key quantization and fused histogram including necessary buffer clear/allocation",
+  "cpuSort": "prefix sum + scatter",
+  "cpuPostprocess": "front-camera count + optional mapping",
+  "validationReceipts": [
+    "worker-verification.json",
+    "pilot validation written by runner"
+  ]
+}

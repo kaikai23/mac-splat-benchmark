@@ -1,0 +1,3 @@
+var webgpuVS = "\n#extension GL_EXT_samplerless_texture_functions : require\n#define texture2D(res, uv) texture(sampler2D(res, res ## _sampler), uv)\n#define itexture2D(res, uv) texture(isampler2D(res, res ## _sampler), uv)\n#define utexture2D(res, uv) texture(usampler2D(res, res ## _sampler), uv)\n#define TEXTURE_PASS(name) name, name ## _sampler\n#define TEXTURE_ACCEPT(name) texture2D name, sampler name ## _sampler\n#define TEXTURE_ACCEPT_HIGHP TEXTURE_ACCEPT\n#define GL2\n#define WEBGPU\n#define VERTEXSHADER\n#define gl_VertexID gl_VertexIndex\n#define gl_InstanceID gl_InstanceIndex\n";
+
+export { webgpuVS as default };

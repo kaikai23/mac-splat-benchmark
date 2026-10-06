@@ -1,0 +1,9 @@
+{
+  "name": "visionary-spark-rebuttal-benchmark",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite --host 127.0.0.1", "build": "vite build" },
+  "dependencies": { "three": "0.180.0", "gl-matrix": "3.4.3" },
+  "devDependencies": { "vite": "6.4.1", "typescript": "5.9.2", "@types/three": "0.180.0" }
+}

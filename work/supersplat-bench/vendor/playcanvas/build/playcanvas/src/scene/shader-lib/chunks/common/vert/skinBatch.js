@@ -1,0 +1,3 @@
+var skinBatchVS = "\nattribute float vertex_boneIndices;\nuniform highp sampler2D texture_poseMap;\nuniform vec4 texture_poseMapSize;\nmat4 getBoneMatrix(const in float i) {\n	float j = i * 3.0;\n	float dx = texture_poseMapSize.z;\n	float dy = texture_poseMapSize.w;\n	float y = floor(j * dx);\n	float x = j - (y * texture_poseMapSize.x);\n	y = dy * (y + 0.5);\n	vec4 v1 = texture2D(texture_poseMap, vec2(dx * (x + 0.5), y));\n	vec4 v2 = texture2D(texture_poseMap, vec2(dx * (x + 1.5), y));\n	vec4 v3 = texture2D(texture_poseMap, vec2(dx * (x + 2.5), y));\n	return mat4(\n		v1.x, v2.x, v3.x, 0,\n		v1.y, v2.y, v3.y, 0,\n		v1.z, v2.z, v3.z, 0,\n		v1.w, v2.w, v3.w, 1\n	);\n}\n";
+
+export { skinBatchVS as default };

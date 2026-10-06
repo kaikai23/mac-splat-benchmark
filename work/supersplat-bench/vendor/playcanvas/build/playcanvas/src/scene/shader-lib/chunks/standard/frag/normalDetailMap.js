@@ -1,0 +1,3 @@
+var normalDetailMapPS = "\n#ifdef MAPTEXTURE\nuniform float material_normalDetailMapBumpiness;\nvec3 blendNormals(vec3 n1, vec3 n2) {\n	n1 += vec3(0, 0, 1);\n	n2 *= vec3(-1, -1, 1);\n	return n1 * dot(n1, n2) / n1.z - n2;\n}\n#endif\nvec3 addNormalDetail(vec3 normalMap) {\n#ifdef MAPTEXTURE\n	vec3 normalDetailMap = unpackNormal(texture2DBias($SAMPLER, $UV, textureBias));\n	normalDetailMap = mix(vec3(0.0, 0.0, 1.0), normalDetailMap, material_normalDetailMapBumpiness);\n	return blendNormals(normalMap, normalDetailMap);\n#else\n	return normalMap;\n#endif\n}\n";
+
+export { normalDetailMapPS as default };

@@ -1,0 +1,154 @@
+{
+  "schema": "mac-source-resolution-policy-v1",
+  "complete": true,
+  "images": 378,
+  "source_manifest_sha256": "538335c4e81084b3dfc6504662c6d7cd45a5c4d64e23d4d83de9535c05a2a61e",
+  "header_audit_sha256": "b61f4c300802bf99e9c22dac0d7fbbac833c882e9c38776b265a54e0dbf444ce",
+  "scenes": [
+    {
+      "scene": "bicycle",
+      "image_dir": "images_4",
+      "source_dimensions": [
+        1237,
+        822
+      ],
+      "calibration_nominal_divisor": 4,
+      "views": 25,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "flowers",
+      "image_dir": "images_4",
+      "source_dimensions": [
+        1256,
+        828
+      ],
+      "calibration_nominal_divisor": 4,
+      "views": 22,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "garden",
+      "image_dir": "images_4",
+      "source_dimensions": [
+        1297,
+        840
+      ],
+      "calibration_nominal_divisor": 4,
+      "views": 24,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "stump",
+      "image_dir": "images_4",
+      "source_dimensions": [
+        1245,
+        825
+      ],
+      "calibration_nominal_divisor": 4,
+      "views": 16,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "treehill",
+      "image_dir": "images_4",
+      "source_dimensions": [
+        1267,
+        832
+      ],
+      "calibration_nominal_divisor": 4,
+      "views": 18,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "room",
+      "image_dir": "images_2",
+      "source_dimensions": [
+        1557,
+        1038
+      ],
+      "calibration_nominal_divisor": 2,
+      "views": 39,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "counter",
+      "image_dir": "images_2",
+      "source_dimensions": [
+        1558,
+        1038
+      ],
+      "calibration_nominal_divisor": 2,
+      "views": 30,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "kitchen",
+      "image_dir": "images_2",
+      "source_dimensions": [
+        1558,
+        1039
+      ],
+      "calibration_nominal_divisor": 2,
+      "views": 35,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "bonsai",
+      "image_dir": "images_2",
+      "source_dimensions": [
+        1559,
+        1039
+      ],
+      "calibration_nominal_divisor": 2,
+      "views": 37,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "drjohnson",
+      "image_dir": "images",
+      "source_dimensions": [
+        1332,
+        876
+      ],
+      "calibration_nominal_divisor": 1,
+      "views": 33,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "playroom",
+      "image_dir": "images",
+      "source_dimensions": [
+        1264,
+        832
+      ],
+      "calibration_nominal_divisor": 1,
+      "views": 29,
+      "source_note": "Matches cfg_args image-folder downsampling within rounding"
+    },
+    {
+      "scene": "truck",
+      "image_dir": "images",
+      "source_dimensions": [
+        979,
+        546
+      ],
+      "calibration_nominal_divisor": 2,
+      "views": 32,
+      "source_note": "Official images folder contains half-resolution RGB relative to calibration dimensions"
+    },
+    {
+      "scene": "train",
+      "image_dir": "images",
+      "source_dimensions": [
+        980,
+        545
+      ],
+      "calibration_nominal_divisor": 2,
+      "views": 38,
+      "source_note": "Official images folder contains half-resolution RGB relative to calibration dimensions"
+    }
+  ],
+  "interpretation": "Dimensions are verified from exact selected official-photo headers; calibration dimensions need not equal image pixels. Source images are independently resized to1280x720; truck/train are upsampled.",
+  "source_entries_sha256": "73210da997c84fe99d9d2a2d559910d1ee7a79ecfa5464b9d9a877214e6c9467"
+}

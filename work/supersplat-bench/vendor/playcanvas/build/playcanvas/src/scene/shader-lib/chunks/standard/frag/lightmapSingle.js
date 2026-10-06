@@ -1,0 +1,3 @@
+var lightmapSinglePS = "\nvoid getLightMap() {\n	dLightmap = vec3(1.0);\n	#ifdef MAPTEXTURE\n	dLightmap *= $DECODE(texture2DBias($SAMPLER, $UV, textureBias)).$CH;\n	#endif\n	#ifdef MAPVERTEX\n	dLightmap *= saturate(vVertexColor.$VC);\n	#endif\n}\n";
+
+export { lightmapSinglePS as default };

@@ -1,0 +1,3 @@
+var msdfVS = "\nattribute vec3 vertex_outlineParameters;\nattribute vec3 vertex_shadowParameters;\nvarying vec4 outline_color;\nvarying float outline_thickness;\nvarying vec4 shadow_color;\nvarying vec2 shadow_offset;\nvoid unpackMsdfParams() {\n	vec3 little = mod(vertex_outlineParameters, 256.);\n	vec3 big = (vertex_outlineParameters - little) / 256.;\n	outline_color.rb = little.xy / 255.;\n	outline_color.ga = big.xy / 255.;\n	outline_thickness = little.z / 255. * 0.2;\n	little = mod(vertex_shadowParameters, 256.);\n	big = (vertex_shadowParameters - little) / 256.;\n	shadow_color.rb = little.xy / 255.;\n	shadow_color.ga = big.xy / 255.;\n	shadow_offset = (vec2(little.z, big.z) / 127. - 1.) * 0.005;\n}\n";
+
+export { msdfVS as default };

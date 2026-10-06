@@ -1,0 +1,3 @@
+var particlePS = "\nvarying vec4 texCoordsAlphaLife;\nuniform sampler2D colorMap;\nuniform sampler2D colorParam;\nuniform float graphSampleSize;\nuniform float graphNumSamples;\n#ifndef CAMERAPLANES\n#define CAMERAPLANES\nuniform vec4 camera_params;\n#endif\nuniform float softening;\nuniform float colorMult;\nfloat saturate(float x) {\n	return clamp(x, 0.0, 1.0);\n}\nvoid main(void) {\n	vec4 tex  = texture2D(colorMap, vec2(texCoordsAlphaLife.x, 1.0 - texCoordsAlphaLife.y));\n	vec4 ramp = texture2D(colorParam, vec2(texCoordsAlphaLife.w, 0.0));\n	ramp.rgb *= colorMult;\n	ramp.a += texCoordsAlphaLife.z;\n	vec3 rgb = tex.rgb * ramp.rgb;\n	float a  = tex.a * ramp.a;\n";
+
+export { particlePS as default };

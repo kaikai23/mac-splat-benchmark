@@ -1,0 +1,3 @@
+var opacityDitherPS = "\nuniform vec4 blueNoiseJitter;\n#ifdef DITHER_BLUENOISE\n	uniform sampler2D blueNoiseTex32;\n#endif\nvoid opacityDither(float alpha, float id) {\n	#ifdef DITHER_BAYER8\n		float noise = bayer8(floor(mod(gl_FragCoord.xy + blueNoiseJitter.xy + id, 8.0))) / 64.0;\n	#else\n		#ifdef DITHER_BLUENOISE\n			vec2 uv = fract(gl_FragCoord.xy / 32.0 + blueNoiseJitter.xy + id);\n			float noise = texture2DLod(blueNoiseTex32, uv, 0.0).y;\n		#endif\n		#ifdef DITHER_IGNNOISE\n			vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);\n			float noise = fract(magic.z * fract(dot(gl_FragCoord.xy + blueNoiseJitter.xy + id, magic.xy)));\n		#endif\n	#endif\n	noise = pow(noise, 2.2);\n	if (alpha < noise)\n		discard;\n}\n";
+
+export { opacityDitherPS as default };
