@@ -1,0 +1,18 @@
+{
+  "schema": "visionary-official-native-4dgs-asset-v1",
+  "name": "Visionary official D-NeRF Bouncing Balls 4DGS",
+  "filename": "bouncingballs.onnx",
+  "bytes": 28630191,
+  "sha256": "e52f8bdeb4e7ab1c9be8f9c8e72bc3d5378d14b5a4172b2aafb8f86beb5a3d1f",
+  "url": "https://drive.usercontent.google.com/download?id=1rZA_vwL1ErC9P861dTCOHPxDQd7fFGTi&export=download&confirm=t",
+  "publicView": "https://drive.google.com/file/d/1rZA_vwL1ErC9P861dTCOHPxDQd7fFGTi/view",
+  "officialFolder": "https://drive.google.com/drive/folders/1nk5slXl-_-jRyDggXoBpRwz2VajmQizQ",
+  "sourceReadme": "https://github.com/Visionary-Laboratory/visionary/blob/e50f3f6c7200be0516567f0830e5240dfa26d27d/README.md",
+  "licenseNote": "Visionary source code is Apache-2.0. No separate license statement was found for this pretrained weight file; it is downloaded from the official public folder and is not redistributed in this repository.",
+  "timeDomain": [
+    0,
+    1
+  ],
+  "sourceAcquisitionFps": null,
+  "sceneIdentityNote": "Named bouncingballs.onnx in the official Visionary model folder, a D-NeRF benchmark scene. No source acquisition FPS or clip duration is asserted."
+}

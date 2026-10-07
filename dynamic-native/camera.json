@@ -1,0 +1,34 @@
+{
+  "position": [
+    2.369078963725964,
+    -2.367614119975964,
+    1.4839688344579338
+  ],
+  "rotation": [
+    [
+      0.7071067811865475,
+      0.21440729484260862,
+      -0.6738171205292091
+    ],
+    [
+      0.7071067811865475,
+      -0.21440729484260862,
+      0.6738171205292091
+    ],
+    [
+      0,
+      -0.9529213104115938,
+      -0.3032177042381441
+    ]
+  ],
+  "fx": 772.0224913834411,
+  "fy": 772.0224913834411,
+  "width": 1280,
+  "height": 720,
+  "source": "Fixed oblique Z-up view from union of GPU opacity>=0.02 center bounds at t=0,0.5,1; camera distance 0.75 of conservative sphere framing, selected for readable content before any performance measurements",
+  "target": [
+    0.001953125,
+    -0.00048828125,
+    0.41876220703125
+  ]
+}
