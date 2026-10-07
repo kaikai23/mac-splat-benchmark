@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 from collections import Counter, defaultdict
+from datetime import datetime, timedelta
 import json
 import math
 import os
@@ -303,6 +304,76 @@ def validate_timer_review(config, protocol, audit):
     return review
 
 
+def validate_performance_audit(run, protocol, audit):
+    path = run / 'validation/independent-formal-qa.json'
+    audit.source(path)
+    receipt = read(path)
+    require(receipt.get('schema') == 'independent-mac-three-method-performance-audit-v1'
+            and receipt.get('passed') is True and receipt.get('complete') is True
+            and receipt.get('fullMatrixComplete') is True and receipt.get('partial') is False
+            and receipt.get('pilot') is False, 'Complete independent formal performance audit missing')
+    require((ROOT / receipt['runDirectory']).resolve() == run
+            and receipt['protocolId'] == protocol['protocolId'],
+            'Independent performance audit belongs to a different run/protocol')
+    expected = {'configurations': 156, 'rounds': 780, 'samples': 68040,
+                'displayPngs': 234, 'qualityWebps': 4536, 'rafIntervals': 14040}
+    require(all(receipt['counts'].get(key) == value
+                and receipt['expectedCounts'].get(key) == value for key, value in expected.items()),
+            'Independent performance audit coverage differs')
+    sources = receipt.get('sourceReceipts')
+    require(isinstance(sources, list) and sources, 'Independent performance audit has no bound sources')
+    seen = set()
+    for source in sources:
+        source_path = (ROOT / source['path']).resolve()
+        require(source_path not in seen, 'Duplicate independent performance audit source')
+        seen.add(source_path)
+        audit.source(source_path, source['sha256'])
+        require(source_path.stat().st_size == source['bytes'], 'Independent performance source size differs')
+    raw_root = (run / 'raw').resolve()
+    raw_paths = {p.resolve() for p in raw_root.glob('*.json')}
+    require({p for p in seen if p.parent == raw_root} == raw_paths
+            and {(run / 'protocol.json').resolve(), (run / 'runtime-cleanup.json').resolve()} <= seen,
+            'Independent performance audit does not bind this complete raw collection')
+    return receipt
+
+
+def collection_timeline(rows, cleanup):
+    def stamp(value):
+        parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        require(parsed.tzinfo is not None, 'Configuration timeline needs timezone-aware timestamps')
+        require(parsed.utcoffset() == timedelta(0), 'Configuration timeline timestamps must use UTC')
+        return parsed
+    def key(row):
+        return f'{row["scene"]}-s{row["stride"]}-{row["method"]}'
+    ordered = sorted(rows, key=lambda row: (stamp(row['started_at']), key(row)))
+    lookup = {key(row): row for row in ordered}
+    require(all(stamp(row['completed_at']) >= stamp(row['started_at']) for row in ordered),
+            'Configuration session ends before its recorded start')
+    intervals = [dict(previous_configuration=key(previous), previous_raw_sha256=previous['raw_sha256'],
+                      previous_completed_at=previous['completed_at'], next_configuration=key(following),
+                      next_raw_sha256=following['raw_sha256'], next_started_at=following['started_at'],
+                      gap_seconds=(stamp(following['started_at']) - stamp(previous['completed_at'])).total_seconds())
+                 for previous, following in zip(ordered, ordered[1:])]
+    resumed = []
+    for item in cleanup['configurations']:
+        if item.get('resumed') is True:
+            require(item['key'] in lookup and item['sha256'] == lookup[item['key']]['raw_sha256'],
+                    'Checkpoint-reuse timeline entry differs from a validated raw')
+            resumed.append(item['key'])
+    require(len(resumed) == len(set(resumed)), 'Duplicate checkpoint-reuse timeline entry')
+    require(stamp(cleanup['finishedAt']) >= stamp(cleanup['startedAt']),
+            'Latest collector invocation ends before its recorded start')
+    first = min(rows, key=lambda row: stamp(row['started_at']))['started_at']
+    last = max(rows, key=lambda row: stamp(row['completed_at']))['completed_at']
+    return dict(startedAt=first, completedAt=last,
+                configurationSessionSpanSeconds=(stamp(last) - stamp(first)).total_seconds(),
+                latestRuntimeStartedAt=cleanup['startedAt'], latestRuntimeFinishedAt=cleanup['finishedAt'],
+                resumedConfigurationCount=len(resumed), resumedConfigurationKeys=resumed,
+                adjacentIntervals=len(intervals), largestAdjacentGap=max(intervals, key=lambda item: item['gap_seconds']),
+                negativeAdjacentIntervals=sum(item['gap_seconds'] < 0 for item in intervals),
+                definition='Wall-clock configuration session boundaries from raw startedAt/completedAt; not GPU time, measured-loop time, or a continuous thermal steady-state test.'), intervals
+
+
 def analyze(run, config, out):
     audit = Audit()
     require(not (run / 'gpu-session.lock').exists() and not (ROOT / 'results/gpu-session.lock').exists(), 'GPU collection still locked')
@@ -427,6 +498,8 @@ def analyze(run, config, out):
             f'Formal matrix incomplete: {len(rows)}/156 configurations, {len(rounds)}/780 rounds, {len(e2e_samples)}/68040 samples')
     require(len(pngs) == 234 and len(capture_map) == 4536 and len(raf_rows) == 39, 'PNG/all-view/native rAF capture counts differ')
     rows.sort(key=lambda r: (STRIDES.index(r['stride']), SCENES.index(r['scene']), METHODS.index(r['method'])))
+    performance_audit = validate_performance_audit(run, protocol, audit)
+    timeline, timeline_intervals = collection_timeline(rows, cleanup)
     gt_root = Path(config['groundTruthRoot']).resolve()
     quality, gt_manifest, quality_protocol = validate_quality(run, rows, capture_map, selection, gt_root, audit)
     aggregates = []
@@ -441,6 +514,8 @@ def analyze(run, config, out):
               'methodDefinitions': protocol['methodDefinitions'], 'configurations': rows, 'aggregates': aggregates,
               'renderParameters': render_parameters, 'projectionIntrinsics': projection,
               'quality': quality, 'qualityProtocol': quality_protocol, 'prerequisites': prerequisites, 'nativeRaf': raf_rows,
+              'independentPerformanceAudit': performance_audit,
+              'collectionTimeline': timeline,
               'timerDomainReview': timer_review,
               'captureCount': len(pngs), 'qualityCaptureCount': len(capture_map),
               'roundCount': len(rounds), 'sampleCount': len(e2e_samples),
@@ -450,6 +525,7 @@ def analyze(run, config, out):
     write_csv(out / 'e2e-samples.csv', e2e_samples); write_csv(out / 'aggregates.csv', aggregates)
     write_csv(out / 'native-raf.csv', raf_rows)
     write_csv(out / 'projection-intrinsics.csv', projection)
+    write_csv(out / 'collection-timeline.csv', timeline_intervals)
     write_json(out / 'report.json', report)
     qa = {'passed': True, 'complete': True, 'configurations': 156, 'rounds': 780, 'samples': 68040,
           'pngCaptures': 234, 'qualityViews': 4536, 'qualityComplete': True,

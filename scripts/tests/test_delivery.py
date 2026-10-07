@@ -119,7 +119,7 @@ class DeliveryTests(unittest.TestCase):
 
     def test_accepts_codex_review_without_claiming_human_review(self):
         result=self.record();self.assertTrue(result['passed']);self.assertFalse(result['humanVisualReview'])
-        self.assertEqual(len(result['screenshots']),10)
+        self.assertEqual(len(result['screenshots']),12)
         checks,paths,acceptance=package.validate_delivery(self.run)
         self.assertIn('validation/visual-review.json',checks)
         self.assertEqual(acceptance['reviewerType'],'codex');self.assertFalse(acceptance['humanVisualReview'])

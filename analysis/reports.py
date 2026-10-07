@@ -128,6 +128,31 @@ def build(out, report, qa, captures):
         component_rows.append([labels[method]] + [fmt(statistics.fmean(r[f] for r in group)) if all(r[f] is not None for r in group) else '— / fused or N/A' for f in component_fields])
     quality_headers = ['Scene', 'Method', 'PSNR dB ↑', 'SSIM ↑', 'LPIPS ↓']
     quality_rows = [[s, labels[m], fmt(lookup[s,1,m]['gt_psnr_db']), fmt(lookup[s,1,m]['gt_ssim'],5), fmt(lookup[s,1,m]['gt_lpips_vgg'],5)] for s in SCENES for m in METHODS]
+    configuration_headers = ['Scene', 'stride', 'Method', 'Gaussians', 'Views', 'Samples',
+                             'E2E mean ± round SD ms', 'E2E P50 ms', 'E2E P95 ms', 'Completed FPS',
+                             'Stage cost ± round SD ms', 'PSNR dB ↑', 'SSIM ↑', 'LPIPS ↓']
+    configuration_rows = [
+        [r['scene'], f's{r["stride"]}', labels[r['method']], f'{r["gaussian_count"]:,}', r['views'], r['samples'],
+         f'{fmt(r["e2e_completion_mean_ms"])} ± {fmt(r["e2e_completion_round_mean_sd_ms"])}',
+         fmt(r['e2e_completion_p50_ms']), fmt(r['e2e_completion_p95_ms']), fmt(r['completed_frames_per_second']),
+         f'{fmt(r["stage_cost_ms_mean"])} ± {fmt(r["stage_cost_ms_sd"])}',
+         fmt(r['gt_psnr_db']), fmt(r['gt_ssim'], 4), fmt(r['gt_lpips_vgg'], 4)] for r in rows]
+    timeline = report['collectionTimeline']
+    gap = timeline['largestAdjacentGap']
+    timeline_rows = [
+        ['First configuration start UTC', timeline['startedAt']],
+        ['Last configuration completion UTC', timeline['completedAt']],
+        ['Configuration-session span seconds', fmt(timeline['configurationSessionSpanSeconds'])],
+        ['Latest collector invocation UTC', timeline['latestRuntimeStartedAt'] + ' → ' + timeline['latestRuntimeFinishedAt']],
+        ['Existing complete configurations reused by latest invocation', timeline['resumedConfigurationCount']],
+        ['Maximum adjacent configuration gap seconds', fmt(gap['gap_seconds'])],
+        ['Before largest gap', gap['previous_configuration'] + ' / completed ' + gap['previous_completed_at']],
+        ['After largest gap', gap['next_configuration'] + ' / started ' + gap['next_started_at']],
+        ['Negative adjacent wall-clock intervals', timeline['negativeAdjacentIntervals']]]
+    resume_zh = (f'最新一次收集器运行的清理回执记录复用了{timeline["resumedConfigurationCount"]}个已完成配置；本批包含检查点续跑。'
+                 if timeline['resumedConfigurationCount'] else '最新一次收集器运行的清理回执未记录复用已完成配置。')
+    resume_en = (f'The latest collector cleanup receipt records reuse of {timeline["resumedConfigurationCount"]} complete configurations; this collection includes checkpoint continuation. '
+                 if timeline['resumedConfigurationCount'] else 'The latest collector cleanup receipt records no reused complete configurations. ')
     power_rows = []
     for method in METHODS:
         group = [r for r in rows if r['method'] == method]
@@ -206,9 +231,11 @@ def build(out, report, qa, captures):
     links = [('Protocol','../protocol.json'),('Full raw-linked JSON','report.json'),('Configurations CSV','configurations.csv'),
              ('Hardware inventory','../environment/host-inventory.json'),('Pilot and CPU/GPU prerequisites','../validation/prerequisites.json'),
              ('All round means','round-means.csv'),('Individual E2E samples','e2e-samples.csv'),('Scene aggregates','aggregates.csv'),
+             ('Configuration collection timeline','collection-timeline.csv'),('Collector cleanup and checkpoint reuse','../runtime-cleanup.json'),
              ('Effective projection intrinsics','projection-intrinsics.csv'),
              ('Quality protocol','../quality/metrics/metrics-protocol.json'),('Quality summary','../quality/metrics/quality-summary.json'),
              ('CPU numerical validation','../validation/quality-numerical-validation.json'),
+             ('Independent formal performance audit','../validation/independent-formal-qa.json'),
              ('Independent actual-image quality audit','../validation/independent-quality-qa.json'),
              ('QA','analysis-qa.json'),('SHA receipt','build-receipt.json'),('Capture gallery','captures.html'),('LaTeX','full-model-table.tex')]
     copied_evidence = []
@@ -243,8 +270,16 @@ def build(out, report, qa, captures):
         sections.append(dict(key=key,zh=zh,en=en,pzh=list(paragraphs_zh),pen=list(paragraphs_en),headers=headers,rows=data,figures=list(figures)))
     section('scope','范围与版本','Scope and versions',[scale_zh,versions_zh,settings_zh],[scale_en,versions_en,settings_en])
     section('environment','实际设备与渲染环境','Actual device and render environment',headers=['Field','Value'],data=environment_rows)
+    section('collection-timeline','采集时间与检查点续跑','Collection intervals and checkpoint continuation',
+            [resume_zh + f'下表使用已绑定raw的配置会话起止时间与收集器回执，不把整个墙钟跨度当作计时窗口。最大相邻间隔从前一配置completedAt到下一配置startedAt计算；完整{timeline["adjacentIntervals"]}个相邻间隔及两端raw哈希见CSV。间隔可能包含暂停、启动/清理和其他非测量工作，时间戳本身不证明其具体原因。各方法为分立会话，本批不是持续热稳态测试，不能假设间隔两端温度或频率相同。所有速度和质量统计保持原定义，不按这些间隔修正。'],
+            [resume_en + f'The table uses bound raw configuration-session timestamps and the collector receipt; total wall-clock span is not a measured-loop window. The maximum adjacent interval runs from one configuration completedAt to the next startedAt; the CSV preserves all {timeline["adjacentIntervals"]} intervals and both raw hashes. Gaps may include pauses, startup/cleanup and other unmeasured work; timestamps alone do not establish their cause. Methods use separate sessions and this is not a continuous thermal steady-state test; equal temperature or frequency across a gap is not assumed. Timing and quality definitions are unchanged and receive no gap correction.'],
+            ['Recorded fact', 'Value'], timeline_rows)
     section('e2e','主速度表：完整模型端到端P50/P95与完成FPS','Main speed table: full-model E2E percentiles and completed FPS',[caveat_zh,aggregation_zh,timer_domains_zh],[caveat_en,aggregation_en,timer_domains_en],main_headers,main_rows,['full-model-completed-fps.png','full-model-e2e-percentiles.png'])
     section('scales','四规模与场景等权汇总','Four scales and equal-scene aggregates',[aggregation_zh],[aggregation_en],aggregate_headers,aggregate_rows,['four-scale-throughput.png'])
+    section('configurations','全部156配置明细','All 156 measured configurations',
+            ['每行对应一个场景、stride和方法；覆盖全部13×4×3配置。表内可上下及左右滚动，CSV保留完整精度。数值直接取自已验证的逐配置结果，不重新计算统计。E2E与阶段成本的SD均为5个轮均值的样本标准差；阶段和不是端到端时间。全部配置使用上方环境表所列1280×720、DPR 1、浏览器及OS。'],
+            ['Each row is one scene/stride/method, covering all 13×4×3 configurations. Scroll within the table vertically and horizontally; the CSV retains full precision. Values come directly from validated configuration records without recomputing statistics. SD is the sample standard deviation of five round means for E2E and stages; stage sums are not end-to-end time. Every configuration uses the 1280×720 framebuffer, DPR 1, browser and OS listed above.'],
+            configuration_headers, configuration_rows)
     section('stage','不同计时边界的阶段成本','Method-specific selected stages',
             ['阶段成本不是统一端到端时间。'+ ' '.join(BOUNDARIES[m] for m in METHODS)],
             ['Selected stages are not unified end-to-end times. '+ ' '.join(BOUNDARIES[m] for m in METHODS)],stage_headers,stage_rows,['full-model-stage-cost.png'])
@@ -274,6 +309,7 @@ def build(out, report, qa, captures):
         pieces.extend(['## '+('复现证据' if language=='zh' else 'Reproduction evidence'), ' · '.join(f'[{name}]({target})' for name,target in links)])
         (out/f'report-{language}.md').write_text('\n\n'.join(pieces)+'\n',encoding='utf-8')
     css='*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#182838;font:15px/1.7 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}header{background:#183950;color:white;padding:28px}header h1{margin:0}nav{display:flex;gap:16px;overflow:auto;white-space:nowrap;background:white;padding:12px;position:sticky;top:0;border-bottom:1px solid #ddd}main{max-width:1450px;margin:auto;padding:24px}section{scroll-margin-top:70px;background:white;padding:24px;margin-bottom:24px;border-radius:12px}.table-scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:9px;border-bottom:1px solid #e4eaf0;text-align:left}th{background:#eaf1f7}.chart{width:100%;height:auto}a{color:#176293}.en{color:#557087;font-size:14px}p{max-width:1250px}figure{margin:6px}img{max-width:100%}.gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}@media(max-width:700px){main{padding:10px}section{padding:15px}.gallery{grid-template-columns:1fr}}'
+    css += 'main,section,.table-scroll{min-width:0}section,.table-scroll{max-width:100%}#configurations .table-scroll{max-height:760px;overflow:auto}#configurations table{min-width:1700px}#configurations th{position:sticky;top:0;z-index:1}#configurations td:nth-child(n+4){white-space:nowrap}'
     body = []
     for s in sections:
         inner=''.join('<p>'+html.escape(p)+'</p>' for p in s['pzh'])+''.join('<p class="en">'+html.escape(p)+'</p>' for p in s['pen'])

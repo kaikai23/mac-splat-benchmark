@@ -133,6 +133,12 @@ async function main() {
     page.on('requestfailed', request => qa.requestFailures.push({url: request.url(), error: request.failure()?.errorText}));
     page.on('request', request => { if (!request.url().startsWith(base + '/')) qa.externalRequests.push(request.url()); });
     const assets = new Map();
+    const report = read(path.join(reportRoot, 'report.json'));
+    assert(report.complete === true && report.configurations.length === 156, 'Expected complete configuration report');
+    const configurationLabels = {visionary: 'Visionary 1.0.1',
+      spark: `Spark.js 0.1.10 native ${report.methodDefinitions.spark.sortBits}-bit keys`,
+      supersplat: 'SuperSplat Editor 2.1.0'};
+    const expectedConfigurationKeys = report.configurations.map(item => `${item.scene}|s${item.stride}|${configurationLabels[item.method]}`).sort();
     async function shot(name, locator) {
       guard();
       const file = path.join(screenshotRoot, name + '.png');
@@ -157,6 +163,21 @@ async function main() {
         assert(observed.innerWidth === viewport.width && observed.clientWidth === viewport.width, 'Viewport CSS width differs; check mobile viewport metadata');
         assert(observed.bodyScrollWidth <= viewport.width + 1 && observed.rootScrollWidth <= viewport.width + 1, 'Body horizontal overflow: ' + viewport.name + '/' + name);
         assert(observed.images.length > 0 && observed.images.every(image => image.naturalWidth > 0), 'Missing decoded image');
+        if (name === 'index.html') {
+          const configurationTable = await page.locator('#configurations').evaluate(section => ({
+            rows: [...section.querySelectorAll('tbody tr')].map(row => [...row.cells].map(cell => cell.textContent.trim())),
+            wrapper: (() => { const item = section.querySelector('.table-scroll'); return {
+              clientWidth: item.clientWidth, scrollWidth: item.scrollWidth,
+              overflowX: getComputedStyle(item).overflowX, overflowY: getComputedStyle(item).overflowY}; })(),
+          }));
+          assert(configurationTable.rows.length === 156 && configurationTable.rows.every(row => row.length === 14), 'All-configuration table must show156 complete rows and14 fields');
+          assert(new Set(configurationTable.rows.map(row => row.slice(0, 3).join('|'))).size === 156, 'Duplicate scene/stride/method rows in configuration table');
+          assert(JSON.stringify(configurationTable.rows.map(row => row.slice(0, 3).join('|')).sort()) === JSON.stringify(expectedConfigurationKeys), 'Configuration table coverage differs from report JSON');
+          assert(configurationTable.wrapper.scrollWidth > configurationTable.wrapper.clientWidth && configurationTable.wrapper.overflowX === 'auto', 'Wide configuration table must scroll inside its wrapper');
+          qa.configurationTableChecks ??= [];
+          qa.configurationTableChecks.push({viewport: viewport.name, rows: 156, columns: 14,
+            uniqueSceneStrideMethodRows: true, sourceCoverageMatches: true, ...configurationTable.wrapper});
+        }
         for (const reference of observed.references) {
           const value = reference.value;
           assert(value && !/^[a-z][a-z0-9+.-]*:/i.test(value) && !value.startsWith('//') && !value.startsWith('/'), 'Asset/link must be relative: ' + value);
@@ -185,6 +206,7 @@ async function main() {
           await shot('desktop-quality-table-and-plot', page.locator('#quality'));
           await shot('desktop-timer-domain-diagnostics', page.locator('#timer-domains'));
         }
+        if (name === 'index.html') await shot(viewport.name + '-all-configurations-table', page.locator('#configurations'));
         if (name === 'captures.html') await shot(viewport.name + '-gallery-first-scene', page.locator('section').first());
       }
     }

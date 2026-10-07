@@ -20,6 +20,7 @@ REQUIRED_SCREENSHOTS = {
     'desktop-main-speed-table.png', 'desktop-completion-fps-plot.png',
     'desktop-quality-table-and-plot.png', 'desktop-timer-domain-diagnostics.png',
     'desktop-gallery-first-scene.png', 'mobile-gallery-first-scene.png',
+    'desktop-all-configurations-table.png', 'mobile-all-configurations-table.png',
 }
 
 

@@ -16,6 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 _review_spec = importlib.util.spec_from_file_location('delivery_visual_review', Path(__file__).with_name('record-visual-review.py'))
 VISUAL = importlib.util.module_from_spec(_review_spec)
 _review_spec.loader.exec_module(VISUAL)
+_environment_spec = importlib.util.spec_from_file_location('delivery_existing_environment', Path(__file__).with_name('verify-existing-environment.py'))
+EXISTING = importlib.util.module_from_spec(_environment_spec)
+_environment_spec.loader.exec_module(EXISTING)
 MAX_SETUP_RECEIPT_BYTES = 8 * 1024 * 1024
 
 
@@ -39,7 +42,8 @@ def setup_evidence(run):
         raise ValueError('Use a run beneath results/RUN/ with its own ordinary RUN/setup directory')
     if not setup.is_dir():
         raise ValueError('Missing run-local setup receipts; offline preparation also needs dependency and GT verification receipts')
-    top_names = {'dependency-installation.json', 'ground-truth-verification.json', 'environment.json'}
+    top_names = {'dependency-installation.json', 'ground-truth-verification.json', 'environment.json',
+                 EXISTING.RECEIPT_NAME, EXISTING.FILES_NAME}
     online_names = top_names | {'setup.json', 'original-models.json', 'all-models.json'}
     validation_names = {'supersplat-worker.json', 'spark-native-sort-cpu-validation.json',
                         'native-prepare-lifecycle-review.json', 'gpu-probe/gpu-probe-metal.json'}
@@ -49,6 +53,7 @@ def setup_evidence(run):
         selected = ((len(rel.parts) == 1 and (rel.name in top_names or
                     rel.name.startswith('data-verification-'))) or
                     (len(rel.parts) == 2 and rel.parts[0].startswith('online-') and rel.name in online_names) or
+                    (len(rel.parts) == 2 and rel.parts[0] == EXISTING.PROVENANCE_DIR and rel.name in EXISTING.PROVENANCE_NAMES) or
                     (rel.parts[0] == 'validation' and Path(*rel.parts[1:]).as_posix() in validation_names))
         if not selected:
             continue
@@ -58,7 +63,7 @@ def setup_evidence(run):
         paths.append(path)
     protocol = json.loads((run / 'protocol.json').read_text())
     quality = json.loads((run / 'quality/metrics/metrics-protocol.json').read_text())
-    gt_matches, dependency_matches = [], []
+    gt_matches, dependency_matches, existing_matches = [], [], []
     for path in paths:
         receipt = json.loads(path.read_text())
         if path.name == 'ground-truth-verification.json':
@@ -74,13 +79,19 @@ def setup_evidence(run):
                     receipt.get('networkAccessDuringInstallation') is False and
                     len(receipt.get('dependencyCacheReceiptSha256', '')) == 64):
                 dependency_matches.append(path)
+        elif path.name == EXISTING.RECEIPT_NAME:
+            preserved = EXISTING.validate_receipt(path, run, protocol, quality, root=ROOT)
+            if not set(preserved) <= set(paths):
+                raise ValueError('Existing-environment verification evidence is absent from the package inventory')
+            existing_matches.append(path)
     if not gt_matches:
         raise ValueError('RUN/setup needs a fixed-pixel GT verification receipt matching this quality run and repository lock')
-    if not dependency_matches:
-        raise ValueError('RUN/setup needs a complete offline dependency-installation receipt matching this run Node/Python versions')
+    if not dependency_matches and not existing_matches:
+        raise ValueError('RUN/setup needs a complete dependency-installation receipt or actual existing-environment verification matching this run')
     return paths, {'setupDirectory': setup.relative_to(ROOT).as_posix(),
         'groundTruthReceipts': [p.relative_to(ROOT).as_posix() for p in gt_matches],
-        'dependencyReceipts': [p.relative_to(ROOT).as_posix() for p in dependency_matches]}
+        'dependencyReceipts': [p.relative_to(ROOT).as_posix() for p in dependency_matches],
+        'existingEnvironmentReceipts': [p.relative_to(ROOT).as_posix() for p in existing_matches]}
 
 
 def validate_delivery(run):
