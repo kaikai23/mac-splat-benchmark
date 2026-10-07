@@ -62,6 +62,10 @@ async function main() {
     startedAt: now(), humanVisualReview: false, configPath: path.resolve(ROOT, args.config), runDirectory: run,
     reportBuildSha256: sha(buildPath), analysisQaSha256: sha(path.join(reportRoot, 'analysis-qa.json')),
     scriptSha256: sha(__filename), browserArgs: ['--disable-gpu'], reportOutputFilesVerified: build.outputs.length,
+    screenshotPolicy: {viewportTop: 'Unmodified page screenshot with sticky navigation visible',
+      locator: 'Temporarily hide only sticky navigation via screenshot style; visibility preserves layout',
+      locatorStyle: 'nav { visibility: hidden !important; }',
+      domAndLayoutChecks: 'Unmodified live page; no screenshot-only style applied during assertions'},
     pageChecks: [], links: [], screenshots: [], consoleErrors: [], pageErrors: [], requestFailures: [],
     externalRequests: [], ownedCleanup: {complete: false}};
   let server, browserServer, browser, context, interrupted = null, closePromise;
@@ -142,8 +146,12 @@ async function main() {
     async function shot(name, locator) {
       guard();
       const file = path.join(screenshotRoot, name + '.png');
-      if (locator) await locator.screenshot({path: file}); else await page.screenshot({path: file});
-      qa.screenshots.push({path: path.relative(run, file), sha256: sha(file), bytes: fs.statSync(file).size});
+      if (locator) await locator.screenshot({path: file, style: qa.screenshotPolicy.locatorStyle});
+      else await page.screenshot({path: file});
+      qa.screenshots.push({path: path.relative(run, file), sha256: sha(file), bytes: fs.statSync(file).size,
+        captureKind: locator ? 'locator' : 'viewport-top',
+        screenshotOnlyStyle: locator ? qa.screenshotPolicy.locatorStyle : null,
+        navigationHidingStyleApplied: Boolean(locator)});
     }
     for (const viewport of [{name: 'desktop', width: 1400, height: 1000}, {name: 'mobile', width: 390, height: 844}]) {
       await page.setViewportSize({width: viewport.width, height: viewport.height});

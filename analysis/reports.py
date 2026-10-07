@@ -97,7 +97,7 @@ def build(out, report, qa, captures):
     labels = {**LABELS, 'spark': f'Spark.js 0.1.10 native {bits}-bit keys'}
     hardware = report['hostInventory'].get('hardware', {}).get('SPHardwareDataType', [{}])[0]
     processor = hardware.get('number_processors', 'See host inventory')
-    core_parts = re.fullmatch(r'proc(\d+):(\d+):(\d+)', processor)
+    core_parts = re.fullmatch(r'proc\s*(\d+):(\d+):(\d+)', processor)
     if core_parts:
         total, performance, efficiency = core_parts.groups()
         processor = f'{total} cores ({performance} performance + {efficiency} efficiency) / {total} 核（{performance} 性能 + {efficiency} 能效）'
