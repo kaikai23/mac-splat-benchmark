@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Restore the locked Mac experiment assets without rewriting their manifests.
 
-Local actions never use the network. Run fetch-originals only through ssh ecofde.
+Local actions never use the network. Select direct or ecofde explicitly for fetch.
 No action is performed on import, and every data destination must be explicit.
 """
 from __future__ import annotations
@@ -39,6 +39,12 @@ def digest(path):
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def validate_network_mode(mode, system=None):
+    require(mode in ('direct', 'ecofde'), 'Choose an explicit --network-node direct or ecofde')
+    require(mode != 'ecofde' or (system or platform.system()) != 'Darwin',
+            'Use ssh ecofde for --network-node ecofde, or explicitly choose --network-node direct on this Mac')
 
 
 def safe_path(root, relative):
@@ -152,6 +158,8 @@ def fetch_originals(destination, lock_dir, originals):
         require(name.decode('utf-8') == expected['archive_member'], 'ZIP local member name differs')
         start = off + 30 + header[-2] + header[-1]
         compressed = target.with_name(target.name + '.mac-download.compressed.part')
+        require(not compressed.is_symlink() and (not compressed.exists() or compressed.is_file()),
+                'Compressed download scratch must be a regular file')
         offset = compressed.stat().st_size if compressed.exists() else 0
         require(offset <= member['compressed_size'], 'Oversized compressed partial file')
         require(shutil.disk_usage(destination).free > member['compressed_size'] - offset + expected['bytes'] + 1024**3,
@@ -163,6 +171,7 @@ def fetch_originals(destination, lock_dir, originals):
                 stream.flush()
                 offset += length
         temp = target.with_name(target.name + '.mac-extracting.part')
+        require(not temp.is_symlink(), 'Extraction scratch must not be a symlink')
         require(not temp.exists(), f'Preserve/review existing extraction scratch before retry: {temp}')
         decoder = zlib.decompressobj(-15) if header[3] == 8 else None
         crc, written = 0, 0
@@ -250,7 +259,7 @@ def main():
     parser.add_argument('--manifest-dir', type=pathlib.Path, required=True, help='Read-only repository config/data containing locked JSON')
     parser.add_argument('--data-dir', type=pathlib.Path, required=True, help='Explicit directory with scene-relative asset paths')
     parser.add_argument('--source-dir', type=pathlib.Path, help='Existing verified 52-model directory, for import-existing')
-    parser.add_argument('--network-node', choices=['ecofde'], help='Required only for fetch-originals, invoked through ssh ecofde')
+    parser.add_argument('--network-node', choices=['direct', 'ecofde'], help='Required for fetch-originals: direct on this machine, or ecofde on the designated network node')
     parser.add_argument('--scenes', nargs='+', choices=SCENES, default=SCENES)
     parser.add_argument('--receipt', type=pathlib.Path, help='New output receipt, required for all actions except plan')
     args = parser.parse_args()
@@ -267,8 +276,7 @@ def main():
     if args.action != 'verify':
         args.data_dir.mkdir(parents=True, exist_ok=True)
     if args.action == 'fetch-originals':
-        require(args.network_node == 'ecofde' and platform.system() != 'Darwin',
-                'Run network retrieval through ssh ecofde with --network-node ecofde; Mac is local compute only')
+        validate_network_mode(args.network_node)
         fetch_originals(args.data_dir, args.manifest_dir, originals)
     elif args.action == 'import-existing':
         require(args.source_dir is not None, '--source-dir is required')

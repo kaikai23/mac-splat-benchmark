@@ -1,6 +1,7 @@
 """Inventory/download the 378 official heldout images using bounded ZIP ranges.
 
-Run network retrieval on ecofde, then copy only this output to the Mac.
+Choose explicit direct retrieval on the colleague's Mac, or retrieval on ecofde
+followed by transfer of the verified output. There is no implicit network mode.
 Does not require torch, never trains/renders, and never reads model PLY payloads.
 """
 from __future__ import annotations
@@ -150,12 +151,13 @@ def main():
     parser.add_argument('--selection', type=pathlib.Path, required=True)
     parser.add_argument('--output', type=pathlib.Path, required=True)
     parser.add_argument('--download', action='store_true')
-    parser.add_argument('--network-node', choices=['ecofde'], required=True)
+    parser.add_argument('--network-node', choices=['ecofde', 'direct'], required=True,
+                        help='direct explicitly permits official-source retrieval on this host; ecofde preserves the remote-node workflow')
     parser.add_argument('--max-bytes', type=int, default=1024 * 1024 * 1024)
     args = parser.parse_args()
     import platform
-    if platform.system() == 'Darwin':
-        raise ValueError('Network retrieval must run on the designated ecofde node; transfer its verified output to this Mac')
+    if args.network_node == 'ecofde' and platform.system() == 'Darwin':
+        raise ValueError('ecofde mode must run on that remote node; use explicit --network-node direct for retrieval on this Mac')
     selection = json.loads(args.selection.read_text())
     path = args.output / 'inventory.json'
     inv = json.loads(path.read_text()) if path.exists() else inventory(selection, args.output)
@@ -183,7 +185,7 @@ def main():
     save(manifest_path, dict(schema='mac-ground-truth-sources-v1',
          completed_at=stamp(), complete=True, entries=records, sources=inv['sources'],
          inventory_sha256=inventory_sha,
-         selection_sha256=expected_sha, network_node='ecofde'))
+         selection_sha256=expected_sha, network_node=args.network_node))
     print('VERIFIED', len(records), 'photos', flush=True)
 
 

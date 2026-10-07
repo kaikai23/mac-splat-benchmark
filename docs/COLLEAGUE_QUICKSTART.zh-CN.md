@@ -1,10 +1,10 @@
 # 同事在另一台 Apple Silicon Mac 上复测
 
-这份指南从空目录开始，使用已经交接并校验过的离线数据。目标是用目标 Mac **重新测量** Visionary 1.0.1、原生 Spark.js 0.1.10 和 SuperSplat 2.1.0：13 场景 × stride 1/2/4/8 × 3 方法，共 **156 配置、780 轮、68,040 个计时样本、4,536 张质量图像**。源码与协议见 [主 README](../README.md) 和 [PROTOCOL.md](../PROTOCOL.md)。本文中的命令均从克隆后的仓库根目录执行。
+从公开仓库克隆，在自己的 Mac 上联网下载并准备数据，然后按同一协议实测。**不需要维护者传大资产包，也不需要 `ecofde` 或其他 SSH 账号。** 目标为 Visionary 1.0.1、原生 Spark.js 0.1.10、SuperSplat 2.1.0，共 13 场景 × stride 1/2/4/8 × 3 方法，合计 **156 配置、780 轮、68,040 个计时样本、4,536 张质量图像**。源码与协议见 [主 README](../README.md) 和 [PROTOCOL.md](../PROTOCOL.md)。命令均从仓库根目录执行。
 
-## 先取得仓库和数据
+## 克隆并准备基本环境
 
-仓库已公开，可直接通过 HTTPS 克隆，读取源码不需要 GitHub 账号、token 或维护者的 SSH 私钥。
+仓库已公开，HTTPS 读取不需要 GitHub 账号或 token：
 
 ```sh
 git clone https://github.com/kaikai23/mac-splat-benchmark.git
@@ -12,36 +12,9 @@ cd mac-splat-benchmark
 git rev-parse HEAD
 ```
 
-记录该提交，并与维护者确认双方比较使用的提交。仓库包含渲染器源码、固定相机、哈希清单、依赖锁和脚本，**不包含以下数据**；仅克隆代码还不能运行实验。
+记录提交，并与比较对象使用相同源码。Git 仅保存源码、固定相机、哈希清单、锁和脚本；大模型、GT、依赖及结果不会进入 Git。
 
-请维护者通过外置盘或已有的授权文件通道交接以下目录。这里使用 `/Volumes/BenchmarkData/mac-splat` 作为示例；路径可替换，内部相对路径不能改：
-
-```text
-/Volumes/BenchmarkData/mac-splat/
-├── asset-manifest.json             # 维护者组装后的文件 SHA 清单
-├── models/                         # 52 个 PLY，合计约 18.5 GB
-│   ├── bicycle/point_cloud.ply
-│   ├── bicycle/point_cloud_stride_2.ply
-│   └── …                           # 保持 config/data 清单中的全部路径
-├── ground-truth/
-│   ├── ground-truth-manifest.json
-│   └── rgb1280/<scene>/<image>.png  # 378 张 prepared GT
-└── offline-cache/
-    ├── dependency-cache-receipt.json
-    ├── npm-cache/
-    ├── python-wheels/
-    └── torch/hub/checkpoints/vgg16-397923af.pth
-```
-
-离线缓存必须对应当前仓库的两个 npm lock 和 Python wheel lock。模型、GT 和 VGG 可以复用，**其他 Mac 的渲染图、时间或质量分数不能作为本机结果复用**。另留依赖、数 GB 的新截图/结果及打包空间；磁盘空间不足时不要缩减协议或删除正在运行的检查点。
-
-维护者可用[文末的资产组装步骤](#maintainer-assets)生成这一交接目录。同事复制整个目录、保留内部路径后，继续下面的安装与配置即可；无需访问维护者原来的缓存位置。
-
-**没有 `ecofde` 账号也可以按本文离线执行。** `ecofde` 是原项目约定的联网节点，不是公共服务；恢复/下载脚本当前明确限定 `--network-node ecofde` 并拒绝在 macOS 上下载。缺文件时，请有访问权限的维护者按 [主 README 的恢复步骤](../README.md#2-配置已提供的模型与-gt) 准备并交接，不能假设同事也有这个 SSH 别名。安装好的 `node_modules` 或虚拟环境不适合跨机器直接复制；交接的是锁定缓存，再在本机安装。若 GitHub 暂不可达，也可由维护者提供同一提交的 Git bundle，再用 `git clone /absolute/path/source.bundle mac-splat-benchmark` 保留提交身份。
-
-## 安装本机环境
-
-准备 macOS 14 或更新版本、**原生 arm64 Node.js 22/24 LTS、Python 3.12、Google Chrome**。使用已有的受管理安装包或请维护者提供对应安装程序；不要在 Rosetta 终端中执行。先查看实际版本：
+准备 macOS 14 或更新版本、**原生 arm64 Node.js 22/24 LTS、Python 3.12、Google Chrome**。可使用各官方安装程序或已有受管理安装；不要在 Rosetta 终端运行。检查：
 
 ```sh
 uname -m
@@ -50,39 +23,41 @@ python3.12 -c 'import platform,sys; print(platform.machine(), sys.version)'
 sw_vers
 ```
 
-架构应为 `arm64`。安装锁定依赖，使用系统 Chrome，不运行 `playwright install`：
+架构应为 `arm64`。首次官网下载约 **10 GB**，但解压并生成子集后的 **52 个最终模型约 18.5 GB**；建议至少 **30 GB** 可用空间，供临时文件、依赖、GT 和本机结果使用，大型归档另留余量。数据和仓库位于不同卷时分别检查空间。示例外置卷 `/Volumes/BenchmarkData` 必须存在且可写，也可换成本机磁盘上的目录。
+
+## 一次命令准备数据和依赖
+
+为本机指定新的 run；以下命令在同一终端继续使用 `BENCH_RUN`：
 
 ```sh
-python3.12 scripts/install-offline.py \
-  --cache /Volumes/BenchmarkData/mac-splat/offline-cache \
-  --python python3.12
-mkdir -p .cache/torch/hub/checkpoints
-cp /Volumes/BenchmarkData/mac-splat/offline-cache/torch/hub/checkpoints/vgg16-397923af.pth \
-  .cache/torch/hub/checkpoints/
+BENCH_RUN=results/my-mac-run
+python3.12 scripts/setup-online.py \
+  --data-root /Volumes/BenchmarkData/mac-splat \
+  --output-root "$BENCH_RUN" --python python3.12
 ```
 
-脚本校验缓存身份，分别安装根目录及 `work/bench` 的 npm 依赖，并创建本仓库的 `.venv`。不联网补包，不依赖维护者的用户目录、Codex 安装或旧虚拟环境。缺项/哈希不符应回到数据交接步骤修复。
+入口依次完成：下载锁定依赖/VGG、在仓库安装 `.venv`、下载 13 个官方 iteration 30000 PLY、本机生成 39 个 stride 子集、下载 378 张指定照片、用 Pillow 11.3.0 准备 GT 并验证固定像素，最后配置 `config/local.json` 并记录本机环境。**不自动启动测量**；等该命令全部成功退出后再继续。模型归档仅按 Range 获取锁定的 30000 迭代成员，约 8.68 GB；指定照片约 312 MB，依赖/VGG 约 0.83 GB，另有少量归档元数据。
 
-## 配置与输入校验
+生成目录如下；仓库与数据根可分别位于不同磁盘：
 
-为这台 Mac 取一个新的结果目录；以下后续命令在同一终端继续使用 `BENCH_RUN`。不要指向维护者的旧 run。
+```text
+/Volumes/BenchmarkData/mac-splat/
+├── models/                         # 52 个 PLY，固定相对路径
+├── gt-source/                      # 378 张原照片与来源回执
+└── ground-truth/
+    ├── ground-truth-manifest.json
+    └── rgb1280/<scene>/<image>.png
 
-```sh
-BENCH_RUN=results/colleague-mac-001
-python3.12 scripts/configure.py \
-  --data-root /Volumes/BenchmarkData/mac-splat/models \
-  --ground-truth-root /Volumes/BenchmarkData/mac-splat/ground-truth \
-  --chrome '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
-  --output-root "$BENCH_RUN" \
-  --python .venv/bin/python --torch-home .cache/torch
-.venv/bin/python scripts/detect-environment.py \
-  --output "$BENCH_RUN/setup/environment.json"
-.venv/bin/python scripts/verify-ground-truth.py \
-  --ground-truth-root /Volumes/BenchmarkData/mac-splat/ground-truth \
-  --output "$BENCH_RUN/setup/ground-truth-verification.json"
+<仓库>/.cache/online-setup/           # 下载缓存
+<仓库>/.cache/online-setup/torch/     # VGG 权重；写入 config.torchHome
+<仓库>/.venv/                       # 本机安装的固定 Python 依赖
 ```
 
-`configure.py` 默认重新校验全部 52 个模型的字节长度和 SHA256。GT 校验使用仓库固定的 [378 张像素/来源白名单](../scripts/ground-truth-pixels-lock.json)，检查相机、原照片来源、文件及解码后 RGB8 像素 SHA，不能仅用交接目录自己的 manifest 代替。**GT 准备和校验必须使用 `.venv` 中的 Pillow 11.3.0**；不要更改白名单接纳其他图像。配置写入被 Git 忽略的 `config/local.json`，相对配置路径统一从仓库根目录解析。Chrome 安装位置不同就替换 `--chrome`；`detect-environment.py` 可同样传 `--chrome`。正式运行会独立记录实际芯片、GPU 核数、内存、macOS 和 Chrome 身份。
+`--output-root` 默认是 `results/my-mac-run`。Chrome 不在标准位置时给 setup 加 `--chrome '/absolute/path/to/Google Chrome.app/Contents/MacOS/Google Chrome'`；`--python` 可指定另一处原生 Python 3.12。配置路径统一从仓库根目录解析，个人配置被 Git 忽略。使用系统 Chrome，不需要 `playwright install`。
+
+想先查看准备步骤可加 `--plan`，不会下载、安装或写文件；缓存位置可用 `--cache` 指定。`--output-root` 必须为仓库 `results/` 下专用子目录，已有 pilot/formal 测量时不能用于 setup。已有不同配置时也会在下载前拒绝覆盖，应使用新的 `--config config/local-other.json`，并把本文后续所有 `config/local.json` 同步替换为它。各步日志、校验与环境记录位于 `RUN/setup/online-*/`；不要把 setup 成功当作156配置实验已完成。
+
+准备过程重新校验全部 52 模型的 SHA256，并依据仓库 [378 张像素/来源白名单](../scripts/ground-truth-pixels-lock.json)检查 GT；不能只相信下载目录自己的 manifest。**GT 准备和校验必须使用 `.venv` 中的 Pillow 11.3.0**。来源不符应修复输入，不能改白名单接受其他模型或照片。已有合格数据可以复用，其他 Mac 的截图、时间和质量分数不复用。若采用离线缓存，见[可选离线路线](#offline-optional)。
 
 目标覆盖 M1/M2/M3/M4/M5 系列，程序按实际硬件和功能检测，不写死 M1。**目前本地实测验证的是 M1 Pro；其他芯片仍须在自己的 Mac 上通过 GPU probe 和试跑，不能视为已验证。** 比较不同 Mac 时尽量使用相同 Chrome 版本；跨机器的 OS/浏览器差异须随报告披露，不能把所有差异只归因于芯片。**同一次 run 的 probe、pilot、formal 必须使用匹配的 Chrome；浏览器/OS/源码变化后使用新 run，并重新做前置验证。** 不要将另一台机器的 `results/setup`、pilot 或验证回执复制来冒充本机前置检查。
 
@@ -123,8 +98,9 @@ node run-experiment.cjs --config config/local.json --mode full \
 等性能和独立性能审计退出后，再按顺序执行。质量阶段会在本机重新计算全部 4,536 张渲染图：PSNR 使用 CPU float64 MSE，SSIM/LPIPS 使用本机 MPS。随后等待 MPS 进程结束，才运行独立 CPU 质量复核。
 
 ```sh
+BENCH_TORCH_HOME=$(.venv/bin/python -c 'import json; print(json.load(open("config/local.json"))["torchHome"])')
 .venv/bin/python quality/validate_metrics.py --include-lpips \
-  --torch-home .cache/torch \
+  --torch-home "$BENCH_TORCH_HOME" \
   --output "$BENCH_RUN/formal/validation/quality-numerical-validation.json"
 .venv/bin/python quality/measure_quality.py \
   --config config/local.json --run-dir "$BENCH_RUN/formal" --device mps
@@ -156,6 +132,28 @@ git status --short
 
 归档必须在 formal 目录之外，且同名文件不能已存在。它打包该提交的源码、完整 run、试跑和前置证据，并生成文件清单/归档 SHA/CRC 回读回执；不包含 18.5 GB 模型、完整 GT、依赖或 VGG。仅分享可浏览报告时可以复制整个 `formal/analysis/`，其图库和必要证据均为相对链接，但这不等于包含全部 raw 的复核归档。公开源码与本机结果包分别交接，不能把结果包的存在当作完整实验通过。
 
+<a id="offline-optional"></a>
+
+## 可选：已有离线资产时
+
+在线自助是默认流程。已经有完整且与锁匹配的 `models/`、`ground-truth/`、`offline-cache/` 时，可以复制整个资产目录再执行下面步骤，替代上面的 setup。此路线不需要重新下载，也不会复制其他机器的安装环境或结果。
+
+```sh
+BENCH_RUN=results/my-mac-run
+python3.12 scripts/install-offline.py \
+  --cache /Volumes/BenchmarkData/mac-splat/offline-cache --python python3.12
+python3.12 scripts/configure.py \
+  --data-root /Volumes/BenchmarkData/mac-splat/models \
+  --ground-truth-root /Volumes/BenchmarkData/mac-splat/ground-truth \
+  --torch-home /Volumes/BenchmarkData/mac-splat/offline-cache/torch \
+  --python .venv/bin/python --output-root "$BENCH_RUN"
+.venv/bin/python scripts/verify-ground-truth.py \
+  --ground-truth-root /Volumes/BenchmarkData/mac-splat/ground-truth \
+  --output "$BENCH_RUN/setup/ground-truth-verification.json"
+```
+
+完成后回到本文“先验证，再串行完成性能测量”。原项目维护者可以继续在自己的 `ecofde` 联网节点准备缓存，但同事自助流程没有这项依赖。下面资产组装仅供确实需要离线交接时选用。
+
 <a id="maintainer-assets"></a>
 
 ## 附录：维护者组装离线资产
@@ -174,4 +172,4 @@ git status --short
   --output /Volumes/BenchmarkData/mac-splat
 ```
 
-脚本不联网，按仓库锁和来源回执检查 SHA，生成 `models/`、`ground-truth/`、`offline-cache/`、`asset-manifest.json` 和 GT 校验回执。输出是可独立交接的普通文件，不使用符号链接或硬链接。默认 APFS clone 可减少同卷组装开销；跨卷或文件系统不支持时，显式加 `--copy-method copy`，并预留全部文件所需空间。完成后交接整个输出目录，接收方仍按正文重新验证模型和固定 GT，再在自己的 Mac 上实测。
+脚本不联网，按仓库锁和来源回执检查 SHA，生成 `models/`、`ground-truth/`、`offline-cache/`、`asset-manifest.json` 和 GT 校验回执。输出是可独立交接的普通文件，不使用符号链接或硬链接。默认 APFS clone 可减少同卷组装开销；跨卷或文件系统不支持时，显式加 `--copy-method copy`，并预留全部文件所需空间。完成后交接整个输出目录，接收方按上面的可选离线路线重新验证模型和固定 GT，再在自己的 Mac 上实测。

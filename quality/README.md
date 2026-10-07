@@ -16,7 +16,23 @@ Three methods × four strides ×378 views gives **4,536 newly rendered images**.
 The original photographs and prepared GT may be reused after identity verification;
 every renderer capture and every quality metric must belong to the new run.
 
-## Environment and offline execution
+## Setup and metric execution
+
+On the target Mac, prepare native arm64 Node.js22/24, Python3.12 and system
+Chrome, then run the repository's online setup from its root:
+
+```sh
+python3.12 scripts/setup-online.py \
+  --data-root /Volumes/BenchmarkData/mac-splat --output-root results/my-mac-run
+```
+
+It downloads pinned dependencies and VGG, installs `.venv`, obtains the fixed
+models and378 source photographs, prepares/verifies GT, and creates local
+configuration. No SSH account, `ecofde` access or large asset handoff is required.
+Setup must finish before performance collection; it does not launch a GPU probe
+or measurement. Prepared GT is `DATA_ROOT/ground-truth`, and default `torchHome`
+is `.cache/online-setup/torch`. See the [colleague guide](../docs/COLLEAGUE_QUICKSTART.zh-CN.md)
+for the complete order and optional offline preparation.
 
 Use Python3.12 and the pinned repository virtualenv. Root `requirements.txt` includes
 this directory's `requirements.txt`; dependencies, wheels and model weights do not
@@ -39,8 +55,9 @@ checked on the actual target Mac, without assuming a particular M-series chip.
 From the repository root, with external paths in your configuration:
 
 ```sh
+BENCH_TORCH_HOME=$(.venv/bin/python -c 'import json; print(json.load(open("config/local.json"))["torchHome"])')
 .venv/bin/python quality/validate_metrics.py \
-  --include-lpips --torch-home /absolute/torch-home \
+  --include-lpips --torch-home "$BENCH_TORCH_HOME" \
   --output results/RUN/validation/quality-numerical-validation.json
 
 .venv/bin/python quality/measure_quality.py \
@@ -114,22 +131,26 @@ This can affect Gaussian footprints, quality and rendering workload. It does
 not imply the full ellipse height changes by that exact ratio; covariance,
 rotation, blur and radius caps remain relevant.
 
-All network acquisition runs on the designated **ecofde** node. Transfer only the
-selected source photos, receipts, pinned wheels and checkpoint to the Mac.
-Scripts require an explicit network-node flag and reject running retrieval on macOS.
+`scripts/setup-online.py` performs source acquisition directly on the colleague's
+Mac before measurement. Its data root contains `gt-source/` with the original
+photographs and provenance, plus `ground-truth/` with fixed prepared pixels.
+Source URLs and exact selected image names are archived in `selection.json`.
+Acquisition uses bounded ZIP ranges, HTTP206/Content-Range checks, CRC32, length
+and SHA receipts rather than accepting a partial/full response blindly.
+
+For an optional offline route with already verified original photographs, prepare
+and verify them using the pinned local environment:
 
 ```sh
-# On ecofde, from a staged copy of quality/:
-python3 acquire_ground_truth.py --network-node ecofde \
-  --selection selection.json --output gt-source --download --max-bytes 400000000
-python3 fetch_primary_evidence.py --network-node ecofde --output primary-evidence
-
-# On the target Mac, after copying the verified source directory:
 .venv/bin/python quality/prepare_ground_truth.py \
-  --source /absolute/gt-source --selection quality/selection.json \
-  --output /absolute/prepared-ground-truth
+  --source /Volumes/BenchmarkData/mac-splat/gt-source \
+  --selection quality/selection.json \
+  --output /Volumes/BenchmarkData/mac-splat/ground-truth
+.venv/bin/python scripts/verify-ground-truth.py \
+  --ground-truth-root /Volumes/BenchmarkData/mac-splat/ground-truth \
+  --output results/setup/ground-truth-verification.json
 ```
 
-Source URLs and exact selected image names are archived in `selection.json`.
-The acquisition path uses bounded ZIP ranges, HTTP206/Content-Range checks,
-CRC32, length and SHA receipts instead of accepting a partial/full response blindly.
+The original maintainer may continue using its designated `ecofde` download node;
+that infrastructure convention is not a prerequisite for colleagues running the
+public repository on their own Macs.

@@ -94,7 +94,7 @@ def main():
     require(npm_receipt.get('schema') == 'portable-offline-dependency-cache-v1' and
             npm_receipt.get('complete') is True and npm_receipt['npmLocks'] == npm_locks and
             npm_receipt['pythonWheelLockSha256'] == sha(wheel_lock_path), 'Npm source receipt does not match repository locks')
-    require(npm_receipt.get('networkNode') == 'ecofde', 'Expected original designated-node dependency receipt')
+    require(npm_receipt.get('networkNode') in ('ecofde', 'direct'), 'Expected original dependency receipt with explicit ecofde or direct network mode')
     cache_files = []
     for directory, dirs, files in os.walk(args.npm_cacache, followlinks=False):
         for name in dirs:

@@ -1,6 +1,6 @@
 # Apple Silicon Mac Gaussian Splatting 复现实验
 
-**第一次在同事的 Mac 上运行，请从 [同事复测指南](docs/COLLEAGUE_QUICKSTART.zh-CN.md) 开始。** [GitHub 仓库](https://github.com/kaikai23/mac-splat-benchmark) 已公开，HTTPS 克隆不需要 GitHub 账号；模型、GT 与依赖缓存须单独交接，指南提供完整离线流程。
+**第一次在同事的 Mac 上运行，请从 [同事复测指南](docs/COLLEAGUE_QUICKSTART.zh-CN.md) 开始。** [GitHub 仓库](https://github.com/kaikai23/mac-splat-benchmark) 已公开，HTTPS 克隆不需要 GitHub 账号；同事可在自己的 Mac 上直接下载并准备全部依赖、模型与 GT，无需 SSH 账号或大资产包。
 
 在目标 Mac 上重新运行 **Visionary 1.0.1、Spark.js 0.1.10 原生默认排序、SuperSplat Editor 2.1.0**。完整实验为 **13 场景 × 4 个模型规模 × 3 方法 = 156 配置**，输出阶段时间、端到端完成时间 P50/P95、完成吞吐 FPS，以及重新测量的 PSNR、SSIM、LPIPS。Windows 和之前 Spark 2.1 的结果均不参与本实验的统计。
 
@@ -20,76 +20,42 @@ PlayCanvas 固定提交为 `362a874c7149ee181ba68f4cc270fc7b664d7f0b`，附带�
 
 共同设置：官方 iteration 30000 PLY，固定每 8 张选一张的 378 个 heldout 相机；完整模型及每 2/4/8 行确定性抽样；SH degree 3、黑背景、关闭 LoD、1280×720 framebuffer、DPR 1。正式每配置 5 轮，每轮遍历相机 3 次，首轮预热至少 10 秒且至少 128 样本，轮间至少 1.5 秒且至少 32 样本。总计 **780 轮、68,040 个时间样本、4,536 张质量图像、234 张展示 PNG**。
 
-## 1. 准备目标 Mac 与离线依赖
+## 1. 在目标 Mac 上自助安装与下载
 
-使用原生 arm64 的 macOS 14 或更新版本、Node.js 22/24 LTS、Python 3.12 和 Google Chrome。不要在 Rosetta 终端运行。Python wheel 锁针对 macOS arm64 / CPython 3.12；Chrome 版本不写死，但必须实际支持 Apple WebGPU timestamp-query 和 ANGLE Metal WebGL2 timer query。旧浏览器或无硬件时间查询的环境会在验证/试跑中失败，不替换成 CPU/软件结果。
+准备原生 arm64 的 macOS 14 或更新版本、Node.js 22/24 LTS、Python 3.12 和 Google Chrome。不要在 Rosetta 终端运行。Python wheel 锁针对 macOS arm64 / CPython 3.12；Chrome 必须支持 Apple WebGPU timestamp-query 和 ANGLE Metal WebGL2 timer query，后续 probe/pilot 会在实际硬件验证。
 
-所有外网依赖、模型和照片下载统一在 **`ecofde`** 进行，然后复制回测量 Mac。Node/Python/Chrome 安装程序也通过该联网节点或已有受管理安装包取得。`llm1` 不参与此 Mac 实验。以下命令从克隆后的仓库根目录执行；SSH 使用既有别名和各自的仓库访问权限，不把凭据写入文件或命令示例。
-
-把轻量下载脚本和固定锁文件送到联网节点：
+从克隆后的仓库根目录执行：
 
 ```sh
-tar -czf /tmp/mac-splat-setup.tgz scripts package.json package-lock.json \
-  work/bench/package-lock.json config/python-wheels.lock.json
-scp /tmp/mac-splat-setup.tgz ecofde:mac-splat-setup.tgz
-ssh ecofde 'mkdir -p mac-splat-setup && tar -xzf mac-splat-setup.tgz -C mac-splat-setup'
-ssh ecofde 'cd mac-splat-setup && python3 scripts/fetch-offline-dependencies.py \
-  --network-node ecofde --output ../mac-splat-offline-cache --with-vgg'
-rsync -a ecofde:mac-splat-offline-cache/ ../mac-splat-offline-cache/
+python3.12 scripts/setup-online.py \
+  --data-root /Volumes/BenchmarkData/mac-splat \
+  --output-root results/my-mac-run --python python3.12
 ```
 
-若该节点需要代理，给远程下载命令使用节点已经配置的 `HTTPS_PROXY`；不要把代理凭据提交到仓库。下载器只接受锁定 npm integrity 和 PyPI wheel SHA，VGG 也按固定 SHA 校验。缓存同时包含其它平台的 npm 可选包，以便目标 Mac 的 `npm ci --offline` 选择 arm64 原生包。联网节点的 Node 只用于缓存 tarball；实际运行 Node 必须满足 Mac 端要求。
+同事直接使用本机网络，不需要 `ecofde` 或其他 SSH 账号。该入口下载锁定 npm/Python 依赖和 VGG 权重，在本仓库安装 `.venv`，下载 13 个官方 iteration 30000 PLY，在本机生成 39 个确定性子集，再获取 378 张指定原照片、准备并验证固定 GT，最后生成 `config/local.json`。它**不会自动开始 GPU 测量**。所有下载、解压、子集生成和哈希校验必须结束后，才执行第 3 节。
 
-在 Mac 离线安装，不执行 `playwright install`，直接使用系统 Chrome：
+首次联网传输约 **10 GB**：锁定模型归档成员约 8.68 GB、指定照片约 312 MB、依赖和 VGG 约 0.83 GB，另有少量归档元数据。39 个子集由本机生成，**最终 52 模型仍占约 18.5 GB**，不能把下载量当成磁盘用量。建议至少 **30 GB** 可用空间，供临时解压、依赖、GT 和新结果使用；完整归档另留余量。数据与仓库分属不同卷时分别检查空间，准备脚本也会按实际文件动态检查。缓存默认为仓库 `.cache/online-setup`；安装时使用缓存执行固定 `npm ci --offline` 和 pip `--no-index`，不运行 `playwright install`，直接使用系统 Chrome。
 
-```sh
-python3.12 scripts/install-offline.py --cache ../mac-splat-offline-cache --python python3.12
-mkdir -p .cache/torch/hub/checkpoints
-cp ../mac-splat-offline-cache/torch/hub/checkpoints/vgg16-397923af.pth \
-  .cache/torch/hub/checkpoints/
+默认结果根是 `results/my-mac-run`，可通过 `--output-root` 改成新的 run。自定义 Chrome 可加 `--chrome '/path/to/Google Chrome.app/Contents/MacOS/Google Chrome'`；`--python` 必须指向原生 arm64 Python 3.12。生成的个人路径、依赖和结果均被 Git 忽略。已具备完整离线资产时可选用 [指南中的离线路线](docs/COLLEAGUE_QUICKSTART.zh-CN.md#offline-optional)，不需要重复下载。
+
+可先加 `--plan` 查看准备计划，不下载、不安装、不写文件；用 `--cache` 指定缓存位置。`--output-root` 必须是仓库 `results/` 下专用子目录，若已有 pilot/formal 测量则拒绝复用。已有不同的本机配置也会在下载前拒绝覆盖；使用新的 `--config config/local-other.json`，并在后续所有命令中同步该配置路径。完成后保存各步日志、输入校验和环境回执至 `RUN/setup/online-*/`，不改变原先暂停或完成的实验。
+
+## 2. 数据布局与完整性
+
+在线入口的数据根布局为：
+
+```text
+/Volumes/BenchmarkData/mac-splat/
+├── models/        # 13 个原模型 + 39 个 stride 子集
+├── gt-source/     # 378 张指定原照片及来源回执
+└── ground-truth/  # ground-truth-manifest.json + rgb1280/
 ```
 
-安装脚本分别在根目录和 `work/bench` 执行固定 `npm ci --offline`，创建 `.venv` 并用 `--no-index` 安装锁定 wheels。实际 host 共享 `work/bench/node_modules`；无需给每个 vendored 上游项目安装开发环境。缺失/哈希不符会失败，不会偷偷联网补齐。`.cache`、`.venv`、`node_modules` 都被 Git 忽略。
+配置中的 `dataRoot` 指向上面的 `models/`，相机固定使用仓库 `config/cameras`；`groundTruthRoot` 指向 `ground-truth/`，`torchHome` 默认指向仓库 `.cache/online-setup/torch`。路径统一相对仓库根目录解析，也支持绝对路径；不要提交 `config/local*.json`。示例字段见 [config/example.json](config/example.json)。
 
-## 2. 配置已提供的模型与 GT
+52 个模型必须匹配 `config/data/manifest.json`、`subsets-manifest.json` 与 `config/data-lock.json` 的 bytes/SHA256。下载器使用官方归档的锁定成员、受限 HTTP Range、CRC、字节长度和最终 SHA；已有不匹配文件会报错，不能更新清单将未知数据当作基线。
 
-优先复用同事已经提供的完整数据目录。模型约 18.5 GB，**保留模型相对路径**，可放外置盘，仓库不复制它们。权威身份来自 `config/data/manifest.json`、`subsets-manifest.json` 与 `config/data-lock.json`；`dataRoot` 只需含 52 个模型路径，相机使用仓库的 `config/cameras`。
-
-```sh
-python3.12 scripts/configure.py \
-  --data-root /Volumes/Experiments/splat-models \
-  --ground-truth-root /Volumes/Experiments/splat-ground-truth \
-  --output-root results/my-mac-run
-.venv/bin/python scripts/detect-environment.py --output results/setup/environment.json
-.venv/bin/python scripts/verify-ground-truth.py \
-  --ground-truth-root /Volumes/Experiments/splat-ground-truth \
-  --output results/setup/ground-truth-verification.json
-```
-
-`configure.py` 默认重新读取并核对全部 52 个模型的 bytes/SHA256，生成忽略的 `config/local.json` 和校验回执。仅配置路径时可加 `--paths-only`，但运行器仍在启动 GPU 前完整校验。自定义 Chrome 用 `--chrome '/path/to/Google Chrome.app/Contents/MacOS/Google Chrome'`。配置路径统一相对仓库根目录解析；也支持绝对路径。示例字段见 [config/example.json](config/example.json)，不得提交实际的 `config/local*.json`。
-
-准备好的 GT 目录须含 `ground-truth-manifest.json` 和 `rgb1280/`。验证器依据仓库内固定的 [378 张 GT 像素/来源白名单](scripts/ground-truth-pixels-lock.json)，同时检查文件 SHA、解码后的 RGB8 像素 SHA、原照片来源、相机与图像名及固定变换；不只相信交接目录自己提供的 manifest。**GT 准备和校验必须使用本仓库 `.venv` 中的 Pillow 11.3.0**，固定输出为 1280×720 RGB8、bicubic 缩放。可复用通过该校验的原照片和 GT，不能修改白名单接纳其他像素；所有渲染图与质量指标必须出自本次新测量。VGG checkpoint SHA 固定为 `397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0`，缺少权重会失败而非自动下载。
-
-缺少模型时，先看恢复计划；不会读完整模型或联网：
-
-```sh
-python3.12 scripts/restore-models.py plan \
-  --manifest-dir config/data --data-dir /Volumes/Experiments/splat-models
-```
-
-若已有原始 13 模型但缺子集，在 Mac 空闲时运行 `rebuild-subsets`；若原始模型也缺失，把 `scripts/restore-models.py` 和完整 `config/data/` 复制至 `ecofde`，在该节点执行以下恢复，再把模型目录复制回 Mac：
-
-```sh
-# 在 ecofde 上，Python >=3.10，当前目录含 scripts/ 与 config/data/。
-python3 scripts/restore-models.py fetch-originals --network-node ecofde \
-  --manifest-dir config/data --data-dir ../splat-models --receipt ../fetch-models.json
-python3 scripts/restore-models.py rebuild-subsets \
-  --manifest-dir config/data --data-dir ../splat-models --receipt ../rebuild-subsets.json
-python3 scripts/restore-models.py verify \
-  --manifest-dir config/data --data-dir ../splat-models --receipt ../verify-52-models.json
-```
-
-恢复脚本使用官方模型归档的锁定成员偏移、受限 HTTP Range、CRC、字节长度和最终 SHA。原模型仅取 iteration 30000；子集必须恢复成锁定 SHA。已有不匹配文件会保留并报错，不能通过更新清单把未知数据当基线。预留完整模型约 18.5 GB、当前压缩成员/解压临时空间、依赖与结果空间；不要把大数据写进 Git。若缺 GT，按 [quality/README.md](quality/README.md) 在 `ecofde` 获取选定原照片，在 Mac 用固定 Pillow 变换准备 GT。
+GT 验证依据仓库内固定的 [378 张 GT 像素/来源白名单](scripts/ground-truth-pixels-lock.json)，检查文件 SHA、解码后的 RGB8 像素 SHA、原照片来源、相机与图像名及变换。**GT 准备和校验使用本仓库 `.venv` 中的 Pillow 11.3.0**，固定输出为 1280×720 RGB8、bicubic 缩放，不能修改白名单接纳其他像素。VGG SHA 固定为 `397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0`。质量测量本身不会下载缺失权重；须先完成 setup。原模型、原照片和合格 GT 可复用，所有渲染图和分数必须来自本次新测量。
 
 ## 3. 输入验证、试跑与正式测量
 
@@ -126,14 +92,12 @@ node run-experiment.cjs --config config/local.json --mode full \
 ## 4. 新质量度量与报告
 
 ```sh
+BENCH_TORCH_HOME=$(.venv/bin/python -c 'import json; print(json.load(open("config/local.json"))["torchHome"])')
 .venv/bin/python quality/validate_metrics.py --include-lpips \
-  --torch-home .cache/torch \
+  --torch-home "$BENCH_TORCH_HOME" \
   --output results/my-mac-run/formal/validation/quality-numerical-validation.json
 .venv/bin/python quality/measure_quality.py \
-  --run-dir results/my-mac-run/formal \
-  --gt /Volumes/Experiments/splat-ground-truth \
-  --selection quality/selection.json --torch-home .cache/torch \
-  --output results/my-mac-run/formal/quality/metrics --device mps
+  --config config/local.json --run-dir results/my-mac-run/formal --device mps
 .venv/bin/python quality/independent_audit.py --config config/local.json \
   --run-dir results/my-mac-run/formal --threads 2
 .venv/bin/python analysis/analyze.py --config config/local.json \
