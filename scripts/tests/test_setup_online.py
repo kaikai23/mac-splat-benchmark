@@ -153,6 +153,35 @@ class PathAndConfigurationTests(TemporaryRepository):
         setup.check_existing_config(self.config,expected)
         self.assertEqual(self.config.read_bytes(),before)
 
+    def test_legacy_missing_or_global_validation_root_is_not_silently_migrated(self):
+        expected=setup.configuration(self.data,self.cache,self.output,self.chrome)
+        for legacy in (None,str(self.repo/'results/setup')):
+            actual=dict(expected,custom='keep legacy evidence')
+            if legacy is None:actual.pop('validationRoot')
+            else:actual['validationRoot']=legacy
+            self.write_config(actual);before=self.config.read_bytes()
+            with self.preflight_mocks(),patch.object(setup,'execute') as execute:
+                with self.assertRaisesRegex(ValueError,'validationRoot'):
+                    setup.main()
+            execute.assert_not_called()
+            self.assertEqual(self.config.read_bytes(),before)
+            self.assertFalse(self.output.exists())
+
+    def test_distinct_runs_have_disjoint_prerequisite_files(self):
+        configurations=[setup.configuration(self.data,self.cache,self.repo/'results'/name,self.chrome)
+                        for name in ('first-run','second-run')]
+        evidence=['supersplat-worker.json','spark-native-sort-cpu-validation.json',
+                  'native-prepare-lifecycle-review.json','gpu-probe/gpu-probe-metal.json']
+        first={Path(configurations[0]['validationRoot'])/name for name in evidence}
+        second={Path(configurations[1]['validationRoot'])/name for name in evidence}
+        self.assertTrue(first.isdisjoint(second))
+        for path in first:
+            path.parent.mkdir(parents=True,exist_ok=True);path.write_text('first run evidence\n')
+        for path in second:
+            path.parent.mkdir(parents=True,exist_ok=True);path.write_text('second run evidence\n')
+        self.assertTrue(all(path.read_text()=='first run evidence\n' for path in first))
+        self.assertFalse((self.repo/'results/setup/gpu-probe/gpu-probe-metal.json').exists())
+
 
 class StageFailureTests(TemporaryRepository):
     def make_success_hash_inputs(self):
@@ -249,6 +278,16 @@ class StageFailureTests(TemporaryRepository):
 
 
 class GroundTruthWorkflowTests(TemporaryRepository):
+    def test_installation_receipts_are_scoped_to_each_setup_attempt(self):
+        targets=[]
+        for run,attempt in [('first','online-one'),('first','online-two'),('second','online-three')]:
+            output=self.repo/'results'/run;receipts=output/'setup'/attempt
+            command=dict(setup.steps(sys.executable,self.data,self.cache,output,self.config,self.chrome,receipts))['install-dependencies']
+            target=Path(command[command.index('--receipt')+1]);targets.append(target)
+            self.assertEqual(target,receipts/'dependency-installation.json')
+        self.assertEqual(len(set(targets)),3)
+        self.assertNotIn(self.repo/'results/setup/dependency-installation.json',targets)
+
     def test_gt_producer_consumer_paths_and_pinned_python_are_consistent(self):
         stages=setup.steps(sys.executable,self.data,self.cache,self.output,self.config,self.chrome,self.output/'setup')
         by_name=dict(stages);names=[name for name,_ in stages]
@@ -264,11 +303,85 @@ class GroundTruthWorkflowTests(TemporaryRepository):
         self.assertEqual(by_name['prepare-reference-images'][0],str(self.repo/'.venv/bin/python'))
         self.assertEqual(by_name['verify-reference-pixels'][0],str(self.repo/'.venv/bin/python'))
         self.assertIn('--no-overwrite',by_name['configure-target-mac'])
+        self.assertEqual(argument('configure-target-mac','--validation-root'),
+                         setup.configuration(self.data,self.cache,self.output,self.chrome)['validationRoot'])
         self.assertFalse(any('run-experiment' in str(part) or 'probe-gpu' in str(part)
                              for _,command in stages for part in command))
 
 
+class InstallerReceiptTests(TemporaryRepository):
+    def test_default_and_explicit_receipt_paths(self):
+        specification=importlib.util.spec_from_file_location('installer_receipt_under_test',SCRIPTS/'install-offline.py')
+        installer=importlib.util.module_from_spec(specification);specification.loader.exec_module(installer)
+        locks={}
+        for name in ('package-lock.json','work/bench/package-lock.json'):
+            path=self.repo/name;path.write_text('{}\n');locks[name]=installer.sha(path)
+        self.cache.mkdir()
+        (self.cache/'dependency-cache-receipt.json').write_text(json.dumps({'npmLocks':locks}))
+        default=self.repo/'results/setup/dependency-installation.json'
+        cases=[(None,default),('results/new-run/setup/dependency-installation.json',self.repo/'results/new-run/setup/dependency-installation.json'),
+               (str(self.base/'explicit/installation.json'),self.base/'explicit/installation.json')]
+        original=None
+        for argument,target in cases:
+            command=['install-offline.py','--cache',str(self.cache),'--node-only']
+            if argument is not None:command.extend(['--receipt',argument])
+            def metadata(args,**unused):
+                return json.dumps({'arch':'arm64','major':24}) if '-p' in args else 'v24.19.0\n'
+            with self.subTest(receipt=argument),patch.object(installer,'REPO',self.repo), \
+                    patch.object(installer,'resolve',side_effect=self.resolve), \
+                    patch.object(installer.platform,'system',return_value='Darwin'), \
+                    patch.object(installer.platform,'machine',return_value='arm64'), \
+                    patch.object(installer.shutil,'which',side_effect=lambda name:name), \
+                    patch.object(installer.subprocess,'check_output',side_effect=metadata), \
+                    patch.object(installer.subprocess,'run') as run, \
+                    patch.object(sys,'argv',command),contextlib.redirect_stdout(io.StringIO()):
+                installer.main()
+            self.assertEqual(run.call_count,2)  # Mocked npm only; no installation or GPU work.
+            receipt=json.loads(target.read_text())
+            self.assertTrue(receipt['complete'])
+            self.assertIsNone(receipt['pythonVersion'])
+            self.assertFalse(receipt['gpuWorkPerformed'])
+            if original is None:original=default.read_bytes()
+            self.assertEqual(default.read_bytes(),original)
+
+
 class ExclusiveConfigurationTests(TemporaryRepository):
+    def test_configure_default_run_layout_matches_setup_and_delivery(self):
+        specification=importlib.util.spec_from_file_location('configure_default_layout_under_test',SCRIPTS/'configure.py')
+        configure=importlib.util.module_from_spec(specification);specification.loader.exec_module(configure)
+        self.data.mkdir()
+        with patch.object(configure,'REPO',self.repo),patch.object(configure,'resolve',side_effect=self.resolve), \
+                patch.object(configure,'find_chrome',return_value=self.chrome), \
+                patch.object(configure,'locked_models',return_value=([],{})), \
+                patch.object(sys,'argv',['configure.py','--data-root',str(self.data),'--config',str(self.config),
+                                        '--paths-only','--no-overwrite']),contextlib.redirect_stdout(io.StringIO()):
+            configure.main()
+        actual=json.loads(self.config.read_text())
+        output=self.repo/'results/my-mac-run'
+        expected=setup.configuration(self.data,self.cache,output,self.chrome)
+        for field in ('outputRoot','pilotOutput','validationRoot'):
+            self.assertEqual(actual[field],expected[field])
+        self.assertEqual((output/'formal').parent/'setup',Path(actual['validationRoot']).parent)
+        self.assertNotEqual(output,self.repo/'results')
+
+    def test_configure_validation_root_defaults_and_explicit_override(self):
+        specification=importlib.util.spec_from_file_location('configure_validation_under_test',SCRIPTS/'configure.py')
+        configure=importlib.util.module_from_spec(specification);specification.loader.exec_module(configure)
+        self.data.mkdir()
+        for name,override in [('first',None),('second',None),('explicit','results/custom-validation')]:
+            output=self.repo/'results'/name;config=self.repo/'config'/('local-'+name+'.json')
+            command=['configure.py','--data-root',str(self.data),'--output-root',str(output),
+                     '--config',str(config),'--paths-only','--no-overwrite']
+            if override:command.extend(['--validation-root',override])
+            with patch.object(configure,'REPO',self.repo),patch.object(configure,'resolve',side_effect=self.resolve), \
+                    patch.object(configure,'find_chrome',return_value=self.chrome), \
+                    patch.object(configure,'locked_models',return_value=([],{})), \
+                    patch.object(sys,'argv',command),contextlib.redirect_stdout(io.StringIO()):
+                configure.main()
+            actual=json.loads(config.read_text())
+            self.assertEqual(actual['validationRoot'],str(self.resolve(override) if override else output/'setup/validation'))
+            self.assertFalse(Path(actual['validationRoot']).exists())
+
     def test_configure_preserves_venv_python_symlink_path(self):
         specification=importlib.util.spec_from_file_location('configure_venv_under_test',SCRIPTS/'configure.py')
         configure=importlib.util.module_from_spec(specification);specification.loader.exec_module(configure)

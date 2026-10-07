@@ -1,6 +1,6 @@
 # Apple Silicon Mac Gaussian Splatting 复现实验
 
-**第一次在同事的 Mac 上运行，请从 [同事复测指南](docs/COLLEAGUE_QUICKSTART.zh-CN.md) 开始。** [GitHub 仓库](https://github.com/kaikai23/mac-splat-benchmark) 已公开，HTTPS 克隆不需要 GitHub 账号；同事可在自己的 Mac 上直接下载并准备全部依赖、模型与 GT，无需 SSH 账号或大资产包。
+**让 Codex 完成复现，请从根目录 [START_HERE_CODEX.md](START_HERE_CODEX.md) 开始；逐条操作见 [同事复测指南](docs/COLLEAGUE_QUICKSTART.zh-CN.md)。** [GitHub 仓库](https://github.com/kaikai23/mac-splat-benchmark) 已公开，HTTPS 克隆不需要 GitHub 账号；同事可在自己的 Mac 上直接下载并准备全部依赖、模型与 GT，无需 SSH 账号或大资产包。仓库内包含基础环境安装、固定协议、执行命令、故障恢复和完整交付标准，不依赖先前聊天记录。
 
 在目标 Mac 上重新运行 **Visionary 1.0.1、Spark.js 0.1.10 原生默认排序、SuperSplat Editor 2.1.0**。完整实验为 **13 场景 × 4 个模型规模 × 3 方法 = 156 配置**，输出阶段时间、端到端完成时间 P50/P95、完成吞吐 FPS，以及重新测量的 PSNR、SSIM、LPIPS。Windows 和之前 Spark 2.1 的结果均不参与本实验的统计。
 
@@ -22,14 +22,16 @@ PlayCanvas 固定提交为 `362a874c7149ee181ba68f4cc270fc7b664d7f0b`，附带�
 
 ## 1. 在目标 Mac 上自助安装与下载
 
-准备原生 arm64 的 macOS 14 或更新版本、Node.js 22/24 LTS、Python 3.12 和 Google Chrome。不要在 Rosetta 终端运行。Python wheel 锁针对 macOS arm64 / CPython 3.12；Chrome 必须支持 Apple WebGPU timestamp-query 和 ANGLE Metal WebGL2 timer query，后续 probe/pilot 会在实际硬件验证。
+准备原生 arm64 的 macOS 14 或更新版本、Node.js 22/24 LTS、Python 3.12 和 Google Chrome，缺少工具时按 [Mac 基础环境准备](docs/MAC_SETUP.zh-CN.md) 安装。不要在 Rosetta 终端运行。Python wheel 锁针对 macOS arm64 / CPython 3.12；Chrome 必须支持 Apple WebGPU timestamp-query 和 ANGLE Metal WebGL2 timer query，后续 probe/pilot 会在实际硬件验证。
 
 从克隆后的仓库根目录执行：
 
 ```sh
+BENCH_RUN=results/my-mac-run
+BENCH_VALIDATION="$BENCH_RUN/setup/validation"
 python3.12 scripts/setup-online.py \
-  --data-root /Volumes/BenchmarkData/mac-splat \
-  --output-root results/my-mac-run --python python3.12
+  --data-root data \
+  --output-root "$BENCH_RUN" --python python3.12
 ```
 
 同事直接使用本机网络，不需要 `ecofde` 或其他 SSH 账号。该入口下载锁定 npm/Python 依赖和 VGG 权重，在本仓库安装 `.venv`，下载 13 个官方 iteration 30000 PLY，在本机生成 39 个确定性子集，再获取 378 张指定原照片、准备并验证固定 GT，最后生成 `config/local.json`。它**不会自动开始 GPU 测量**。所有下载、解压、子集生成和哈希校验必须结束后，才执行第 3 节。
@@ -45,7 +47,7 @@ python3.12 scripts/setup-online.py \
 在线入口的数据根布局为：
 
 ```text
-/Volumes/BenchmarkData/mac-splat/
+<仓库>/data/
 ├── models/        # 13 个原模型 + 39 个 stride 子集
 ├── gt-source/     # 378 张指定原照片及来源回执
 └── ground-truth/  # ground-truth-manifest.json + rgb1280/
@@ -62,28 +64,29 @@ GT 验证依据仓库内固定的 [378 张 GT 像素/来源白名单](scripts/gr
 接通 AC 电源，关闭当前 AC 电源配置的低功耗模式，保持机器空闲；运行器记录观察到的供电状态，不会修改系统设置。不要同时跑另一份基准、MPS 质量指标或大型安装/哈希任务。
 
 ```sh
+mkdir -p "$BENCH_VALIDATION"
 node work/supersplat-bench/verify-worker.mjs \
-  --output=results/setup/supersplat-worker.json
+  --output="$BENCH_VALIDATION/supersplat-worker.json"
 node work/spark-v0.1.10/validate-native-sort.mjs \
-  --output=results/setup/spark-native-sort-cpu-validation.json
+  --output="$BENCH_VALIDATION/spark-native-sort-cpu-validation.json"
 node work/spark-v0.1.10/validate-native-prepare.mjs \
-  --output=results/setup/native-prepare-lifecycle-review.json
+  --output="$BENCH_VALIDATION/native-prepare-lifecycle-review.json"
 node run-experiment.cjs --config config/local.json --mode validate \
-  --output results/my-mac-run/preflight
-node validation/probe-gpu.cjs config/local.json results/setup/gpu-probe
+  --output "$BENCH_RUN/preflight"
+node validation/probe-gpu.cjs config/local.json "$BENCH_VALIDATION/gpu-probe"
 node run-experiment.cjs --config config/local.json --mode pilot \
-  --output results/my-mac-run/pilot
+  --output "$BENCH_RUN/pilot"
 .venv/bin/python analysis/independent_audit.py \
-  --run-dir results/my-mac-run/pilot \
-  --output results/my-mac-run/pilot/validation/independent-pilot-qa.json
+  --run-dir "$BENCH_RUN/pilot" --validation-root "$BENCH_VALIDATION" \
+  --output "$BENCH_RUN/pilot/validation/independent-pilot-qa.json"
 node run-experiment.cjs --config config/local.json --mode full \
-  --output results/my-mac-run/formal
+  --output "$BENCH_RUN/formal"
 .venv/bin/python analysis/independent_audit.py \
-  --run-dir results/my-mac-run/formal \
-  --output results/my-mac-run/formal/validation/independent-formal-qa.json
+  --run-dir "$BENCH_RUN/formal" --validation-root "$BENCH_VALIDATION" \
+  --output "$BENCH_RUN/formal/validation/independent-formal-qa.json"
 ```
 
-三个 CPU 验证与 GPU probe 的规范回执保存到 `results/setup`（可通过 `config.validationRoot` 配置）。`validate` 校验 52 模型和 378 相机，不启动 GPU。独立 probe 在实际 GPU 验证时间查询。`pilot` 在 train/bicycle、stride 1/8、全部三方法共 12 配置上实际检验 GPU、时间查询、当前相机、图像与清理；试跑为 1 轮/1 遍且首预热至少 1 秒/128 样本，不能混入正式统计。`full` 执行全部 156 配置，每配置新建浏览器，三方法轮换顺序，且所有方法使用同一相机矩阵。`config.pilotOutput` 指向成功的 12 配置试跑，默认是 `config.outputRoot/pilot`；修改 `--output` 自定义试跑目录时同步配置它。正式运行前强制校验三份 CPU 回执、目标 GPU probe、12 配置试跑的来源、浏览器/系统和完整清理。
+上述命令逐条确认成功后继续；pilot 的独立审计必须 `passed=true` 且 `complete=true` 才能开始 full。三个 CPU 验证与 GPU probe 的规范回执保存到本 run 的 `setup/validation`，与新配置的 `config.validationRoot` 一致；不共用旧 `results/setup`。`validate` 校验 52 模型和 378 相机，不启动 GPU。独立 probe 在实际 GPU 验证时间查询。`pilot` 在 train/bicycle、stride 1/8、全部三方法共 12 配置上实际检验 GPU、时间查询、当前相机、图像与清理；试跑为 1 轮/1 遍且首预热至少 1 秒/128 样本，不能混入正式统计。`full` 执行全部 156 配置，每配置新建浏览器，三方法轮换顺序，且所有方法使用同一相机矩阵。`config.pilotOutput` 指向成功的 12 配置试跑，默认是 `config.outputRoot/pilot`；修改 `--output` 自定义试跑目录时同步配置它。正式运行前强制校验三份 CPU 回执、目标 GPU probe、12 配置试跑的来源、浏览器/系统和完整清理。换 shell 时重新设置上述 `BENCH_RUN`/`BENCH_VALIDATION`。
 
 运行器独占 `results/gpu-session.lock`，管理自己的 Chrome、Vite（8770/8771/8772）与 `caffeinate` 进程。不要手动删除仍有存活进程的锁，不终止其它用户的 Chrome。中断后保留检查点；以完全相同命令恢复，只复用协议/源码/浏览器/输入一致且完整的配置。更换代码、浏览器或硬件时使用新的输出目录。待 `runtime-cleanup.json` 表示完成且所有自有进程退出后，才运行质量度量。
 
@@ -95,22 +98,26 @@ node run-experiment.cjs --config config/local.json --mode full \
 BENCH_TORCH_HOME=$(.venv/bin/python -c 'import json; print(json.load(open("config/local.json"))["torchHome"])')
 .venv/bin/python quality/validate_metrics.py --include-lpips \
   --torch-home "$BENCH_TORCH_HOME" \
-  --output results/my-mac-run/formal/validation/quality-numerical-validation.json
+  --output "$BENCH_RUN/formal/validation/quality-numerical-validation.json"
 .venv/bin/python quality/measure_quality.py \
-  --config config/local.json --run-dir results/my-mac-run/formal --device mps
+  --config config/local.json --run-dir "$BENCH_RUN/formal" --device mps
 .venv/bin/python quality/independent_audit.py --config config/local.json \
-  --run-dir results/my-mac-run/formal --threads 2
+  --run-dir "$BENCH_RUN/formal" --threads 2
 .venv/bin/python analysis/analyze.py --config config/local.json \
-  --run-dir results/my-mac-run/formal
+  --run-dir "$BENCH_RUN/formal"
+node analysis/validate_report.cjs --config config/local.json \
+  --run-dir "$BENCH_RUN/formal"
 ```
 
 Torch/MPS 在实际 Mac 重新计算全部 4,536 张新渲染图的指标；PSNR 使用 RGB8 的 CPU float64 MSE，SSIM 使用固定 11×11 Gaussian，LPIPS 使用官方 VGG v0.1 权重。[质量定义](quality/README.md)记录归一化、边界填充及 GT 缩放限制。不要把这些固定分辨率结果称为原论文原生分辨率分数。
 
-等 MPS 进程退出后，再执行独立 CPU 质量审计。它重新校验全部图像与来源哈希，以精确 RGB8 整数平方误差和 float64 MSE 独立复算全部 4,536 个 PSNR，并核对 156 配置均值和 12 个场景等权聚合。每个场景/方法选完整模型的第 0 个相机，共 39 张，用 SciPy float64 可分离卷积复算 SSIM、官方 CPU LPIPS 复核 MPS 值。先验允许误差为 PSNR `1e-10 dB`、SSIM `5e-5`、LPIPS `1e-4 + 1e-4×|CPU值|`；保留全部原值与差异，失败不会自动放宽阈值。其余视图的 SSIM/LPIPS 检查涵盖完整来源、数值范围和聚合，不声称逐图 CPU 重算。通过回执为 `validation/independent-quality-qa.json`。
+等 MPS 进程退出后，再执行独立 CPU 质量审计。它重新校验全部图像与来源哈希，以精确 RGB8 整数平方误差和 float64 MSE 独立复算全部 4,536 个 PSNR，并核对 156 配置均值和 12 组聚合（3 方法 × 4 strides，每组对 13 场景等权）。每个场景/方法选完整模型的第 0 个相机，共 39 张，用 SciPy float64 可分离卷积复算 SSIM、官方 CPU LPIPS 复核 MPS 值。先验允许误差为 PSNR `1e-10 dB`、SSIM `5e-5`、LPIPS `1e-4 + 1e-4×|CPU值|`；保留全部原值与差异，失败不会自动放宽阈值。其余视图的 SSIM/LPIPS 检查涵盖完整来源、数值范围和聚合，不声称逐图 CPU 重算。通过回执为 `validation/independent-quality-qa.json`。
 
 若用户在配置边界暂停正式运行，可显式给两个独立审计程序传入 `--allow-partial`，只审计已完整落盘的配置；逐配置验证保持不变，并要求归属进程退出和 GPU 锁释放。质量审计支持 `--metrics-dir`、`--numerical-validation` 和 `--output`，可将预览指标与回执放在单独的 `results/<run-id>/preview/` 目录。部分结果即使审计通过也保持 `complete=false`、`partial=true`，报告必须列出实际覆盖，跨方法摘要只比较共同完成的场景；CPU SSIM/LPIPS 抽查覆盖每个已完成完整模型配置的第 0 个相机。默认审计仍要求全部 156 配置和 4,536 张质量图像。
 
 结果目录包含 `protocol.json`、环境/源哈希、`raw/*.json`、逐配置供电记录、PNG/WebP、新质量 JSONL 和覆盖校验，以及 `analysis/` 下中英报告、CSV、图、LaTeX 表。只有精确的 156 配置/4,536 质量图完整通过，分析器才产出完整报告。详细结构见 [analysis/README.md](analysis/README.md)。
+
+报告自动 QA 后，按 [同事复测指南](docs/COLLEAGUE_QUICKSTART.zh-CN.md#补齐质量指标与报告) 实际查看全部 QA 截图并记录 `visual-review.json`，再运行 `scripts/package-results.py`。打包器要求当前报告/截图/审计和 run 内准备证据一致；只发送 `index.html` 会缺少相对图片，应交付整个报告目录或完整 ZIP。历史 `analysis/preview.py` 仅适用于原 34 配置预览，不是新机器完整任务的结束点。故障恢复见 [TROUBLESHOOTING](docs/TROUBLESHOOTING.zh-CN.md)。
 
 主要 E2E 从浏览器 `await bench.sample(camera)` 前到 Promise 返回，包含当前相机设置、新排序、GPU 完成确认、查询读回/轮询和插桩；**不表示物理屏幕显示延迟**。P50/P95 为全部逐帧完成样本的 Type7 分位数。FPS 为 `1000 × 完成样本数 / Σ轮次浏览器窗口毫秒`，是串行完成吞吐；原生 rAF callback 吞吐另列。阶段时间保持各引擎原来的边界，不将阶段倒数冒充 FPS。跨场景等权平均每场景统计，不能与池化分位数或延迟倒数混淆。
 

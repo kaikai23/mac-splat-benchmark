@@ -1,11 +1,12 @@
 {
-  "dataRoot": "../model-data",
+  "dataRoot": "data/models",
   "cameraRoot": "config/cameras",
-  "groundTruthRoot": "../ground-truth",
+  "groundTruthRoot": "data/ground-truth",
   "chromeExecutable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  "outputRoot": "results",
-  "pilotOutput": "results/pilot",
+  "outputRoot": "results/my-mac-run",
+  "pilotOutput": "results/my-mac-run/pilot",
+  "validationRoot": "results/my-mac-run/setup/validation",
   "pythonExecutable": ".venv/bin/python",
-  "torchHome": ".cache/torch",
-  "dataVerificationReceipt": "results/setup/data-verification.json"
+  "torchHome": ".cache/online-setup/torch",
+  "dataVerificationReceipt": null
 }

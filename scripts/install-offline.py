@@ -9,7 +9,7 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
-from portable_common import REPO, read, save, sha
+from portable_common import REPO, read, resolve, save, sha
 
 
 def main():
@@ -17,6 +17,8 @@ def main():
     parser.add_argument('--cache', type=Path, required=True)
     parser.add_argument('--python', default='python3.12')
     parser.add_argument('--node-only', action='store_true')
+    parser.add_argument('--receipt', default='results/setup/dependency-installation.json',
+                        help='Installation receipt path, relative to the repository unless absolute')
     args = parser.parse_args()
     if platform.system() != 'Darwin' or platform.machine() != 'arm64':
         raise RuntimeError('Install with native arm64 Python on the target Apple Silicon Mac')
@@ -58,7 +60,7 @@ def main():
         python = REPO / '.venv/bin/python'
         subprocess.run([str(python), '-m', 'pip', 'install', '--no-index', '--find-links', str(cache / 'python-wheels'),
                         '-r', str(REPO / 'requirements.txt')], cwd=REPO, check=True)
-    target = REPO / 'results/setup/dependency-installation.json'
+    target = resolve(args.receipt)
     save(target, dict(schema='portable-offline-installation-v1', complete=True,
          installedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),
          nodeVersion=subprocess.check_output([node, '--version'], text=True).strip(),

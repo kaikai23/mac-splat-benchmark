@@ -32,6 +32,7 @@ def configuration(data, cache, output, chrome):
     return dict(dataRoot=str(data / 'models'), cameraRoot=str(REPO / 'config/cameras'),
                 groundTruthRoot=str(data / 'ground-truth'), chromeExecutable=str(chrome),
                 outputRoot=str(output), pilotOutput=str(output / 'pilot'),
+                validationRoot=str(output / 'setup/validation'),
                 pythonExecutable=str(REPO / '.venv/bin/python'), torchHome=str(cache / 'torch'))
 
 
@@ -59,8 +60,10 @@ def check_paths(data, cache, output, config):
 def check_existing_config(config, expected):
     if config.exists():
         actual = read(config)
+        # A missing validationRoot uses the runner's historical global results/setup
+        # fallback. Do not silently migrate old evidence or rewrite extra settings.
         require(all(actual.get(k) == v for k, v in expected.items()),
-                'Existing local config points to another experiment; use a new --config config/local-NAME.json')
+                'Existing local config differs from this experiment (including its run-specific validationRoot); use a new --config config/local-NAME.json')
 
 
 def steps(python, data, cache, output, config, chrome, receipts):
@@ -71,7 +74,8 @@ def steps(python, data, cache, output, config, chrome, receipts):
         ('download-dependencies', [python, script('scripts/fetch-offline-dependencies.py'),
             '--network-node', 'direct', '--output', str(cache), '--with-vgg']),
         ('install-dependencies', [python, script('scripts/install-offline.py'),
-            '--cache', str(cache), '--python', python]),
+            '--cache', str(cache), '--python', python,
+            '--receipt', str(receipts / 'dependency-installation.json')]),
         ('download-original-models', [python, script('scripts/restore-models.py'), 'fetch-originals',
             '--network-node', 'direct', '--manifest-dir', script('config/data'),
             '--data-dir', str(data / 'models'), '--receipt', str(receipts / 'original-models.json')]),
@@ -90,6 +94,7 @@ def steps(python, data, cache, output, config, chrome, receipts):
         ('configure-target-mac', [python, script('scripts/configure.py'),
             '--data-root', str(data / 'models'), '--ground-truth-root', str(data / 'ground-truth'),
             '--chrome', str(chrome), '--output-root', str(output), '--python', quality_python,
+            '--validation-root', str(output / 'setup/validation'),
             '--torch-home', str(cache / 'torch'), '--config', str(config), '--no-overwrite']),
         ('record-environment', [quality_python, script('scripts/detect-environment.py'),
             '--chrome', str(chrome), '--output', str(receipts / 'environment.json')]),

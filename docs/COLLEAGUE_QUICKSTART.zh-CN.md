@@ -14,7 +14,7 @@ git rev-parse HEAD
 
 记录提交，并与比较对象使用相同源码。Git 仅保存源码、固定相机、哈希清单、锁和脚本；大模型、GT、依赖及结果不会进入 Git。
 
-准备 macOS 14 或更新版本、**原生 arm64 Node.js 22/24 LTS、Python 3.12、Google Chrome**。可使用各官方安装程序或已有受管理安装；不要在 Rosetta 终端运行。检查：
+准备 macOS 14 或更新版本、**原生 arm64 Node.js 22/24 LTS、Python 3.12、Google Chrome**。安装入口和版本检查见 [Mac 基础环境准备](MAC_SETUP.zh-CN.md)；不要在 Rosetta 终端运行。检查：
 
 ```sh
 uname -m
@@ -23,16 +23,17 @@ python3.12 -c 'import platform,sys; print(platform.machine(), sys.version)'
 sw_vers
 ```
 
-架构应为 `arm64`。首次官网下载约 **10 GB**，但解压并生成子集后的 **52 个最终模型约 18.5 GB**；建议至少 **30 GB** 可用空间，供临时文件、依赖、GT 和本机结果使用，大型归档另留余量。数据和仓库位于不同卷时分别检查空间。示例外置卷 `/Volumes/BenchmarkData` 必须存在且可写，也可换成本机磁盘上的目录。
+架构应为 `arm64`。首次官网下载约 **10 GB**，但解压并生成子集后的 **52 个最终模型约 18.5 GB**；建议至少 **30 GB** 可用空间，供临时文件、依赖、GT 和本机结果使用，大型归档另留余量。默认将数据写到被 Git 忽略的仓库 `data/`，不要求额外外置卷。需要改用其他磁盘时再指定现有可写路径，并分别检查数据和仓库所在卷的空间。
 
 ## 一次命令准备数据和依赖
 
-为本机指定新的 run；以下命令在同一终端继续使用 `BENCH_RUN`：
+`BENCH_RUN` 始终指外层 run，正式原始数据位于它的 `formal/`。以下命令在同一终端使用这些变量；换终端或启动新的独立 shell 时须重新设置。选择其他 run 名时要在各步骤保持一致：
 
 ```sh
 BENCH_RUN=results/my-mac-run
+BENCH_VALIDATION="$BENCH_RUN/setup/validation"
 python3.12 scripts/setup-online.py \
-  --data-root /Volumes/BenchmarkData/mac-splat \
+  --data-root data \
   --output-root "$BENCH_RUN" --python python3.12
 ```
 
@@ -41,7 +42,7 @@ python3.12 scripts/setup-online.py \
 生成目录如下；仓库与数据根可分别位于不同磁盘：
 
 ```text
-/Volumes/BenchmarkData/mac-splat/
+<仓库>/data/
 ├── models/                         # 52 个 PLY，固定相对路径
 ├── gt-source/                      # 378 张原照片与来源回执
 └── ground-truth/
@@ -59,39 +60,40 @@ python3.12 scripts/setup-online.py \
 
 准备过程重新校验全部 52 模型的 SHA256，并依据仓库 [378 张像素/来源白名单](../scripts/ground-truth-pixels-lock.json)检查 GT；不能只相信下载目录自己的 manifest。**GT 准备和校验必须使用 `.venv` 中的 Pillow 11.3.0**。来源不符应修复输入，不能改白名单接受其他模型或照片。已有合格数据可以复用，其他 Mac 的截图、时间和质量分数不复用。若采用离线缓存，见[可选离线路线](#offline-optional)。
 
-目标覆盖 M1/M2/M3/M4/M5 系列，程序按实际硬件和功能检测，不写死 M1。**目前本地实测验证的是 M1 Pro；其他芯片仍须在自己的 Mac 上通过 GPU probe 和试跑，不能视为已验证。** 比较不同 Mac 时尽量使用相同 Chrome 版本；跨机器的 OS/浏览器差异须随报告披露，不能把所有差异只归因于芯片。**同一次 run 的 probe、pilot、formal 必须使用匹配的 Chrome；浏览器/OS/源码变化后使用新 run，并重新做前置验证。** 不要将另一台机器的 `results/setup`、pilot 或验证回执复制来冒充本机前置检查。
+目标覆盖 M1/M2/M3/M4/M5 系列，程序按实际硬件和功能检测，不写死 M1。**目前本地实测验证的是 M1 Pro；其他芯片仍须在自己的 Mac 上通过 GPU probe 和试跑，不能视为已验证。** 比较不同 Mac 时尽量使用相同 Chrome 版本；跨机器的 OS/浏览器差异须随报告披露，不能把所有差异只归因于芯片。**同一次 run 的 probe、pilot、formal 必须使用匹配的 Chrome；浏览器/OS/源码变化后使用新 run，并重新做前置验证。** 不要将另一台机器或另一次 run 的验证目录、pilot 或回执复制来冒充本机前置检查。
 
 ## 先验证，再串行完成性能测量
 
 接通 AC 电源，在系统设置中关闭当前 AC 配置的低功耗模式。关闭其他 GPU/MPS 工作和大型后台任务。下面各命令逐条执行并确认成功退出；不要把安装、全量哈希、质量推理或另一份基准与性能测量并行。
 
 ```sh
+mkdir -p "$BENCH_VALIDATION"
 node work/supersplat-bench/verify-worker.mjs \
-  --output=results/setup/supersplat-worker.json
+  --output="$BENCH_VALIDATION/supersplat-worker.json"
 node work/spark-v0.1.10/validate-native-sort.mjs \
-  --output=results/setup/spark-native-sort-cpu-validation.json
+  --output="$BENCH_VALIDATION/spark-native-sort-cpu-validation.json"
 node work/spark-v0.1.10/validate-native-prepare.mjs \
-  --output=results/setup/native-prepare-lifecycle-review.json
+  --output="$BENCH_VALIDATION/native-prepare-lifecycle-review.json"
 node run-experiment.cjs --config config/local.json --mode validate \
   --output "$BENCH_RUN/preflight"
-node validation/probe-gpu.cjs config/local.json results/setup/gpu-probe
+node validation/probe-gpu.cjs config/local.json "$BENCH_VALIDATION/gpu-probe"
 node run-experiment.cjs --config config/local.json --mode pilot \
   --output "$BENCH_RUN/pilot"
 .venv/bin/python analysis/independent_audit.py \
-  --run-dir "$BENCH_RUN/pilot" \
+  --run-dir "$BENCH_RUN/pilot" --validation-root "$BENCH_VALIDATION" \
   --output "$BENCH_RUN/pilot/validation/independent-pilot-qa.json"
 node run-experiment.cjs --config config/local.json --mode full \
   --output "$BENCH_RUN/formal"
 .venv/bin/python analysis/independent_audit.py \
-  --run-dir "$BENCH_RUN/formal" \
+  --run-dir "$BENCH_RUN/formal" --validation-root "$BENCH_VALIDATION" \
   --output "$BENCH_RUN/formal/validation/independent-formal-qa.json"
 ```
 
-这里 `config.pilotOutput` 自动指向 `$BENCH_RUN/pilot`，三份 CPU 回执及 GPU probe 使用默认 `results/setup`。试跑共 12 配置/378 样本；正式运行才是 156 配置/68,040 样本。GPU timer 能力缺失或试跑失败时先保存错误给维护者，不换成软件后端或沿用旧结果。
+新配置的 `config.pilotOutput` 指向 `$BENCH_RUN/pilot`，`config.validationRoot` 指向 `$BENCH_RUN/setup/validation`；三份 CPU 回执及 GPU probe 写入该 run 自己的验证目录，独立性能审计也显式读取它。旧配置若没有此字段或仍指全局 `results/setup`，不要改写历史实验来复用，应创建新配置/run。试跑共 12 配置/378 样本；正式运行才是 156 配置/68,040 样本。GPU timer 能力缺失或试跑失败时先保存错误给维护者，不换成软件后端或沿用旧结果。
 
 渲染分辨率固定为 **1280×720 framebuffer、DPR 1**，浏览器 viewport 1280×760，SH3、黑底、LoD off。每配置 5 轮，每轮将全部选定视角遍历 3 次；stride 1 是完整模型，2/4/8 是锁定索引步长子集，不是训练新模型。Spark 只在 native16 排序键这一项采用上游默认，其他明确参数及插桩见协议。
 
-运行器只管理自己的 Chrome、Vite 和防休眠进程，独占 `results/gpu-session.lock`。中断后保留所有文件；确认自有进程退出、锁释放后，使用**完全相同的 full 命令**恢复，程序会验证并复用完整配置。尚未完整写出的配置会重新执行。不要删仍有存活进程的锁、杀其他人的 Chrome、修改 raw JSON，或把检查点改名成完成结果。
+运行器只管理自己的 Chrome、Vite 和防休眠进程，独占 `results/gpu-session.lock`。中断后保留所有文件；确认自有进程退出、锁释放后，使用**完全相同的 full 命令**恢复，程序会验证并复用完整配置。尚未完整写出的配置会重新执行。不要删仍有存活进程的锁、杀其他人的 Chrome、修改 raw JSON，或把检查点改名成完成结果。setup 下载/解压中断、遗留锁、缺权重等情况按 [故障恢复说明](TROUBLESHOOTING.zh-CN.md) 处理。
 
 ## 补齐质量指标与报告
 
@@ -113,15 +115,24 @@ node analysis/validate_report.cjs \
 open "$BENCH_RUN/formal/analysis/index.html"
 ```
 
-质量程序使用 JSONL 检查点；同一命令重跑只复用来源 SHA 一致的分数。完整分析器要求精确覆盖 156 配置和 4,536 视角，不会为缺失值填零或生成伪完整报告。主动暂停后需要部分预览时，按 [分析说明](../analysis/README.md#fixed-scope-partial-preview) 建立单独的固定范围；不能用 `--allow-partial` 绕过完整交付。
+质量程序使用 JSONL 检查点；同一命令重跑只复用来源 SHA 一致的分数。完整分析器要求精确覆盖 156 配置和 4,536 视角，不会为缺失值填零或生成伪完整报告。主动暂停时保留原始数据和未完成状态，之后按原命令恢复。`analysis/preview.py` 仅服务历史34配置预览，不是任意新 run 的自动预览入口；本默认流程不调用它，也不使用 `--allow-partial` 绕过完整交付。
 
 报告主速度为包含当前相机更新、新排序、GPU 完成和计时读回的 E2E P50/P95，以及完整浏览器采样窗口计算的 completed FPS；它不是屏幕呈现 FPS。CPU/GPU 阶段累计是分项诊断，不能倒数成 FPS。质量定义、GT 上采样和原生投影差异见 [质量说明](../quality/README.md)。
 
-`analysis/index.html` 是主报告，`captures.html` 是 GT/三方法画面页，旁边有中英文 Markdown、CSV、JSON、PNG/SVG 和 LaTeX 表。浏览器 QA 截图在 `formal/validation/report-preview/`；**请实际打开检查**主表、图表和画面，并在交付说明中记录检查人、日期和发现。自动 QA 回执不等于人已看过截图。
+`analysis/index.html` 是主报告，`captures.html` 是 GT/三方法画面页，旁边有中英文 Markdown、CSV、JSON、PNG/SVG 和 LaTeX 表。浏览器 QA 截图在 `$BENCH_RUN/formal/validation/report-preview/`。**必须实际查看自动 QA 回执列出的全部截图**，检查主表、图表、画面及移动端布局，再记录本次审核：
+
+```sh
+.venv/bin/python scripts/record-visual-review.py \
+  --run-dir "$BENCH_RUN/formal" \
+  --reviewer-type codex --reviewer-name Codex \
+  --notes '在此填写实际逐张查看后的发现，不要在尚未查看时执行'
+```
+
+上面的 `--notes` 须替换为实际观察。人工查看时改为 `--reviewer-type human` 与实际姓名；Codex 查看会明确保留 `humanVisualReview=false`。发现未解决问题时通过可重复的 `--finding '具体问题'` 记录失败，不得打包。修复后重新运行分析生成、自动报告 QA、实际截图检查和审核记录；不能沿用旧图的审核。自动布局检查通过不等于已经实际查看截图。
 
 ## 打包交付
 
-确认全部审计通过、所有进程退出、Git 工作区干净。更改过代码时先由维护者审核并提交；不要提交个人路径、凭据、模型或结果。完整打包命令：
+确认全部审计和 `formal/validation/visual-review.json` 通过且绑定当前报告、所有进程退出、Git 工作区干净。更改过代码时先由维护者审核并提交；不要提交个人路径、凭据、模型或结果。完整打包命令：
 
 ```sh
 git status --short
@@ -130,7 +141,7 @@ git status --short
   --output "$BENCH_RUN/colleague-mac-results.zip"
 ```
 
-归档必须在 formal 目录之外，且同名文件不能已存在。它打包该提交的源码、完整 run、试跑和前置证据，并生成文件清单/归档 SHA/CRC 回读回执；不包含 18.5 GB 模型、完整 GT、依赖或 VGG。仅分享可浏览报告时可以复制整个 `formal/analysis/`，其图库和必要证据均为相对链接，但这不等于包含全部 raw 的复核归档。公开源码与本机结果包分别交接，不能把结果包的存在当作完整实验通过。
+归档必须在 formal 目录之外，且同名文件不能已存在。验收还要求本 run 的依赖安装回执、固定 GT 像素校验及当前报告/截图 SHA 一致的视觉审核；在线 setup 自动记录前两项，离线路线须按下文指定输出。它打包该提交的源码、完整 run、试跑和前置证据，并生成文件清单/归档 SHA/CRC 回读回执；不包含 18.5 GB 模型、完整 GT、依赖或 VGG。仅分享可浏览报告时可以复制整个 `formal/analysis/`，其图库和必要证据均为相对链接，但这不等于包含全部 raw 的复核归档。公开源码与本机结果包分别交接，不能把结果包的存在当作完整实验通过。
 
 <a id="offline-optional"></a>
 
@@ -140,13 +151,16 @@ git status --short
 
 ```sh
 BENCH_RUN=results/my-mac-run
+BENCH_VALIDATION="$BENCH_RUN/setup/validation"
 python3.12 scripts/install-offline.py \
-  --cache /Volumes/BenchmarkData/mac-splat/offline-cache --python python3.12
+  --cache /Volumes/BenchmarkData/mac-splat/offline-cache --python python3.12 \
+  --receipt "$BENCH_RUN/setup/dependency-installation.json"
 python3.12 scripts/configure.py \
   --data-root /Volumes/BenchmarkData/mac-splat/models \
   --ground-truth-root /Volumes/BenchmarkData/mac-splat/ground-truth \
   --torch-home /Volumes/BenchmarkData/mac-splat/offline-cache/torch \
-  --python .venv/bin/python --output-root "$BENCH_RUN"
+  --python .venv/bin/python --output-root "$BENCH_RUN" \
+  --validation-root "$BENCH_VALIDATION"
 .venv/bin/python scripts/verify-ground-truth.py \
   --ground-truth-root /Volumes/BenchmarkData/mac-splat/ground-truth \
   --output "$BENCH_RUN/setup/ground-truth-verification.json"

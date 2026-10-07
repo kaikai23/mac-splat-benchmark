@@ -20,16 +20,20 @@ coverage is234 PNGs plus4,536 full-view lossless quality images.
 
 ## Run
 
+In this document `results/RUN` (or `BENCH_RUN`) is the outer run directory;
+formal measurements and their acceptance receipts are inside `formal/`. Run
+commands from the repository root after following the [colleague guide](../docs/COLLEAGUE_QUICKSTART.zh-CN.md).
+
 Finish performance and ground-truth quality measurement first. The analyzer
 does not launch a browser, render a frame, run torch, or perform GPU inference.
-It also requires the new run's `validation/quality-numerical-validation.json`:
+It also requires the new formal run's `validation/quality-numerical-validation.json`:
 complete CPU analytical PSNR, independent SciPy SSIM, and LPIPS checks bound to
 the current metric/validation script SHA256 and the same VGG checkpoint as the
 actual quality run. Historical numerical receipts are not substituted.
 
 ```sh
 .venv/bin/python analysis/analyze.py \
-  --config config/local.json --run-dir results/RUN
+  --config config/local.json --run-dir results/RUN/formal
 ```
 
 Paths in `config/local.json`, including `groundTruthRoot`, resolve relative to
@@ -45,7 +49,7 @@ to a complete report and no missing values are replaced by zeros or references.
 
 ## Artifacts
 
-The run's `analysis/` directory receives:
+The formal run's `analysis/` directory (`results/RUN/formal/analysis/`) receives:
 
 - Bilingual `index.html`, `report-zh.md`, `report-en.md`, actual GT/three-method
   `captures.html`, and full `report.json`.
@@ -138,8 +142,22 @@ timing diagnostics and gallery are written to `validation/report-preview/`.
 `validation/report-visual-qa.json` records links, hashes, dimensions and owned
 browser/server cleanup. Signals or cleanup failures leave `passed=false`.
 This is automated rendering QA; `humanVisualReview=false` remains explicit.
-An operator must inspect the screenshots and record that visual review
-separately before claiming it occurred. Do not run browser QA during collection.
+After actually inspecting every screenshot listed in that QA receipt, record
+who reviewed the current artifact and the observed findings:
+
+```sh
+.venv/bin/python scripts/record-visual-review.py \
+  --run-dir results/RUN/formal --reviewer-type codex --reviewer-name Codex \
+  --notes 'Replace with findings from actually viewing all recorded screenshots'
+```
+
+Use `--reviewer-type human` and the actual name only for a human reviewer.
+Codex review keeps `humanVisualReview=false`; it is not misrepresented as human
+review. Each unresolved `--finding 'description'` records a failed review and
+blocks packaging. After changes, regenerate the analysis and automatic QA,
+inspect the new screenshots, and record a new review. The packager requires
+`validation/visual-review.json` to pass and bind the current build, QA and all
+screenshots. Do not run browser QA or visual review during collection.
 
 When an isolated timer-domain review exists under configured `validationRoot`,
 the analyzer binds its renderer source, browser/chip and diagnostic raw hashes,
@@ -149,39 +167,18 @@ intervals can be sensitive to predecessor completion; this does not establish
 exclusive GPU costs or a verified internal ANGLE cause. Serialized diagnostic
 waits are not the production protocol and their FPS is not a baseline result.
 
-## Fixed-scope partial preview
+## Historical 34-configuration preview only
 
-When collection is deliberately paused, `preview.py` produces a separate report
-without relaxing any full-matrix requirement in `analyze.py`. It requires exited
-owned processes, released GPU locks, and an immutable
-`PREVIEW/validation/scope-manifest.json` containing the selected completed raw
-paths and their SHA256 values. Later additions to the formal run cannot silently
-expand that preview. Relative CLI paths resolve from the repository root.
+`preview.py` preserves the earlier, explicitly partial34-configuration review.
+It is **not a general automatic preview entry point for a new colleague run**:
+its scope receipt and some displayed labels target that historical selection
+(eleven shared full-model scenes plus truck/SuperSplat). Those historical raw
+results and scope receipts are not supplied by a fresh Git clone. Do not call
+it with an arbitrary paused run or fabricate its `scope-manifest.json`.
 
-```sh
-.venv/bin/python analysis/preview.py \
-  --config config/local.json \
-  --run-dir results/RUN/formal \
-  --quality-dir results/RUN/preview-34/quality \
-  --output results/RUN/preview-34/report \
-  --require-quality
-```
-
-Omit `--require-quality` only for an explicitly pending draft. Final acceptance
-requires completed quality for every selected view plus the preview's
-`partial-performance-qa.json`, `independent-quality-qa.json` and
-`quality-numerical-validation.json`. A successful partial audit does not mark the
-156-configuration experiment complete. The supplied scope is currently 34
-configurations: eleven shared scenes × three methods, plus truck/SuperSplat.
-
-The HTML and exports expose configuration, stage-component, round, view and
-individual-sample levels. `quality-views.csv` joins each view's fifteen measured
-completion samples (five rounds × three visits) with its actual PSNR/SSIM/LPIPS.
-It includes view mean/P50/P95, not an invented view FPS; FPS comes from complete
-configuration loop windows. Balanced summaries are recalculated from only the
-eleven scenes shared by all three methods. The unmatched truck result remains
-visible in detail and is excluded from the balanced comparison.
-
-`report/` is independently viewable: its HTML links to local CSV/JSON, exact-byte
-gallery images and copied evidence. Build and gallery receipts bind all output
-hashes. No missing stride or configuration is filled from pilot or earlier runs.
+The default reproduction path completes the156-configuration formal run and
+uses `analyze.py`. If collection is paused, keep the genuine raw/checkpoints and
+incomplete status, then resume the unchanged formal command when authorized.
+A specially requested partial review needs its own explicit scope and reviewed
+reporting logic; partial auditor/quality flags never establish full completion.
+See [troubleshooting](../docs/TROUBLESHOOTING.zh-CN.md) for safe recovery.

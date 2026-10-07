@@ -23,7 +23,7 @@ Chrome, then run the repository's online setup from its root:
 
 ```sh
 python3.12 scripts/setup-online.py \
-  --data-root /Volumes/BenchmarkData/mac-splat --output-root results/my-mac-run
+  --data-root data --output-root results/my-mac-run
 ```
 
 It downloads pinned dependencies and VGG, installs `.venv`, obtains the fixed
@@ -41,7 +41,9 @@ Relative configuration paths resolve from the repository root, independently of
 the working directory. The VGG checkpoint is
 `TORCH_HOME/hub/checkpoints/vgg16-397923af.pth`, with SHA256
 `397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0`.
-The metric script refuses to download missing weights.
+The metric script refuses to download missing weights. If an older error message
+mentions downloading through `ecofde`, it does not require that account; follow
+the [configured local-cache recovery instructions](../docs/TROUBLESHOOTING.zh-CN.md#missing-vgg).
 
 For a complete report, run quality only after the performance runner reports
 complete, stops its owned browser/server processes, and releases
@@ -52,19 +54,20 @@ collection. PSNR uses CPU float64 pixel MSE;
 SSIM/LPIPS use the explicitly selected `cpu` or `mps` device. MPS availability is
 checked on the actual target Mac, without assuming a particular M-series chip.
 
-From the repository root, with external paths in your configuration:
+From the repository root, with paths in your configuration: `results/RUN` is
+the outer run directory; the measured collection is `results/RUN/formal`.
 
 ```sh
 BENCH_TORCH_HOME=$(.venv/bin/python -c 'import json; print(json.load(open("config/local.json"))["torchHome"])')
 .venv/bin/python quality/validate_metrics.py \
   --include-lpips --torch-home "$BENCH_TORCH_HOME" \
-  --output results/RUN/validation/quality-numerical-validation.json
+  --output results/RUN/formal/validation/quality-numerical-validation.json
 
 .venv/bin/python quality/measure_quality.py \
-  --config config/local.json --run-dir results/RUN --device mps
+  --config config/local.json --run-dir results/RUN/formal --device mps
 ```
 
-The default output is `results/RUN/quality/metrics`. Explicit `--gt`,
+The default output is `results/RUN/formal/quality/metrics`. Explicit `--gt`,
 `--torch-home`, `--selection` and `--output` overrides are also available.
 
 The script reads canonical `method=visionary|spark|supersplat` from one run's
@@ -78,10 +81,12 @@ captures, and never sets full-matrix completion true. Put its output in a separa
 preview directory. `collection-scope.json` binds the observed raw inventory and
 cleanup receipt; `requestedSubsetComplete=true` means only that declared subset
 has all quality scores. The full 156-configuration analysis still requires full
-coverage. Checkpoints bind raw, renderer image and GT hashes; changed inputs are
+coverage. The historical `analysis/preview.py` is not a generic report generator
+for arbitrary subsets and is not part of the default workflow. Checkpoints bind
+raw, renderer image and GT hashes; changed inputs are
 rejected rather than silently reusing stale scores.
 
-The final analysis requires `RUN/validation/quality-numerical-validation.json`
+The final analysis requires `results/RUN/formal/validation/quality-numerical-validation.json`
 with `complete=true`; its metric and validation script hashes must match this
 repository, and its VGG hash must match the actual metric protocol. Run the
 synthetic CPU validation on this code after timing has finished. A previous
@@ -143,12 +148,12 @@ and verify them using the pinned local environment:
 
 ```sh
 .venv/bin/python quality/prepare_ground_truth.py \
-  --source /Volumes/BenchmarkData/mac-splat/gt-source \
+  --source data/gt-source \
   --selection quality/selection.json \
-  --output /Volumes/BenchmarkData/mac-splat/ground-truth
+  --output data/ground-truth
 .venv/bin/python scripts/verify-ground-truth.py \
-  --ground-truth-root /Volumes/BenchmarkData/mac-splat/ground-truth \
-  --output results/setup/ground-truth-verification.json
+  --ground-truth-root data/ground-truth \
+  --output results/RUN/setup/ground-truth-verification.json
 ```
 
 The original maintainer may continue using its designated `ecofde` download node;
