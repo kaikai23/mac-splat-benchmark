@@ -10,11 +10,16 @@
 
 从仓库根目录执行。使用原生 arm64 Apple Silicon Mac、Python 3.12、Node.js 和 Google Chrome；基础工具见 [Mac 环境说明](../docs/MAC_SETUP.zh-CN.md)。可以复用已经完成的根目录锁定环境，不需要为本实验重新下载静态52模型、GT或VGG。新机器仍须在本机执行下面的 probe 和 pilot，不能把其他芯片的结果当作本机测量。
 
-尚未安装根依赖时，可用公开网络下载锁定缓存再离线安装。此流程不需要私人 SSH 账号，也不启动 GPU：
+先设置本次独立路径，无论是否复用已有环境都执行：
 
 ```sh
 NATIVE_RUN=results/visionary-native-my-mac
-NATIVE_DATA=data/visionary-native-dynamic
+NATIVE_DATA=data/visionary-native-dynamic-bouncingballs
+```
+
+尚未安装根依赖时，可用公开网络下载锁定缓存再离线安装。此流程不需要私人 SSH 账号，也不启动 GPU：
+
+```sh
 python3.12 scripts/fetch-offline-dependencies.py \
   --network-node direct --output .cache/native-dependencies
 python3.12 scripts/install-offline.py \
@@ -50,7 +55,7 @@ node dynamic-native/run.cjs --config config/local-native.json \
   --data "$NATIVE_DATA" --mode probe --out "$NATIVE_RUN/probe"
 ```
 
-probe 读取 t=0、0.5、1 三个时刻实际 GPU 输出的有效点，以其全量中心边界的并集生成候选诊断视图，再检查三个时刻的画面与动态内容。中心边界不包含高斯协方差的完整投影范围，仍须目视检查边缘。**probe 不产生正式FPS，也不自动改写已锁定的 `camera.json`。** 维护者在首次建立协议时一次性选择并锁定相机；同事使用仓库已锁相机，不根据快慢重新调参或选择视角。实际查看输出 PNG，确认内容可见、不是黑图、没有明显严重裁剪；若异常，停止后续测量并保留证据，先检查设备/浏览器/模型身份，不能悄悄改锁定相机使结果通过。
+probe 读取 t=0、0.5、1 三个时刻实际 GPU 输出的有效点，以其全量中心边界的并集生成三个候选诊断视图，并加入`camera.json`的`locked_view`作为第四个视图；每个视图检查三个时刻的画面与动态内容。中心边界不包含高斯协方差的完整投影范围，仍须目视检查边缘。**probe 不产生正式FPS，也不自动改写已锁定的 `camera.json`。** 维护者在首次建立协议时一次性选择并锁定相机；同事使用仓库已锁相机，不根据快慢重新调参或选择视角。实际查看输出 PNG，确认内容可见、不是黑图、没有明显严重裁剪；若异常，停止后续测量并保留证据，先检查设备/浏览器/模型身份，不能悄悄改锁定相机使结果通过。
 
 候选 probe 只用于可视诊断，正式时仍固定使用 `camera.json`，所有时间点和重复轮次相机一致。probe 的 GPU 进程必须全部退出、锁释放，才能进行 pilot。
 
@@ -90,6 +95,14 @@ formal 会核对成功 pilot 的审计来源、源码、模型锁、相机和浏
 - t=0、50/149、100/149、1的4张原始PNG用于画面检查，截图发生在计时窗口之外。`inspectCurrent`只读刚渲染的同一代GPU输出，不额外推理；审计绑定截图metric与检查的推理/渲染代次、buffer身份和有效点数。没有与固定视点匹配的GT，因此不计算PSNR、SSIM、LPIPS；本次交付为原生动态速度、时序与内容变化验收。
 
 模型推理和渲染共享同一设备与原生输出buffer，不使用逐帧CPU高斯拷回再上传或PLY替换来伪装原生路径；有效数量的少量读回保留。会话请求WebGPU execution provider，检查同GPUDevice及GPU输出，但`ortNodePlacementVerified=false`，没有逐节点执行位置证据，不能宣称ONNX图每个节点都在GPU运行。测试适配器显式请求时间并记录完成/身份；它不代表完整交互UI的自由运行帧调度。单场景与固定视角也不能代表所有动态模型或所有Mac；跨机器比较同时考虑CPU、内存、OS、Chrome和供电。
+
+### 全时间点的数值验收
+
+在预热及计时之前，对本实验全部150个请求时间点各运行一次原生推理，并全量扫描该时刻`num_points`范围内的10个高斯字段：XYZ、alpha和6个协方差分量。所有点的XYZ/alpha必须有限；alpha≥0.02的协方差也必须有限。冻结的原生`preprocess.wgsl`在alpha<0.02时先返回，再读取协方差，因此仅允许这种已证明不会被后续shader读取的非有限协方差。alpha==0.02不属于豁免范围。此规则保持原始ONNX文件和GPU输出，不清洗、替换或上传修正数据。
+
+锁定Bouncing Balls模型输出容量为4,000,000槽，当前内容检查实际有效点数为26,985；容量不能代替有效数量。已观察到原始低alpha点带有非有限协方差，故本实验**不声称所有高斯的全部字段有限**。每次运行必须重新检查全部150个时间点，并保留所有异常行的原始20字节证据、alpha、行号、计数及原生shader SHA，由独立审计解码核验；不能沿用本机已通过结论。任何非有限XYZ/alpha、或alpha≥0.02的非有限协方差均使pilot/formal失败。
+
+完整扫描覆盖高斯10字段；SH颜色仍是抽样解码，不声称所有输出张量逐元素验证。起始检查加150次全时刻检查共151次额外推理，全部在计时之外；4次截图检查只读当前刚渲染的输出，不追加推理。报告仅展示150/150覆盖、有效点数范围、低alpha异常的单时刻最大数量及观测次数，详细逐时刻证据保留在`visionary.json`和`audit.json`。
 
 ## 5. 报告与分享
 
